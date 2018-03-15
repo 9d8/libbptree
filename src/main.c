@@ -7,10 +7,11 @@ int main(int argc, char** argv) {
 	btree_child test2 = { "test2" };
 	btree_child test3 = { "test3" };
 	btree_child test4 = { "test4" };
+	btree_child jojo = { "jojo" };
 	btree_insert(bt, 1, test);
 	btree_insert(bt, 4, test2);
 	btree_insert(bt, 5, test3);
-	btree_insert(bt, 11, test4);
+	btree_insert(bt, 11, jojo);
 	btree_insert(bt, 2, test);
 	btree_insert(bt, 7, test4);
 	btree_insert(bt, 9, test4);
@@ -24,7 +25,11 @@ int main(int argc, char** argv) {
 	btree_insert(bt, 85, test4);
 	printf("--------------------\n");
 	dump_keys(bt->root, 100);
+	printf("--------------------\n");
 	dump_values(bt);
+	printf("--------------------\n");
+	char* found = btree_search(bt, 11).data;
+	printf("%s's bizzare adventure\n", found);
 
 	return 0;
 }

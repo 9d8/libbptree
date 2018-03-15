@@ -9,9 +9,10 @@ typedef struct {
 } key_children;
 
 key_children* btree_insert_aux(btree_node* btn, btree_key key, btree_child value);
-key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
 key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value);
-btree_key array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
+key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
+btree_child node_search(btree_node* btni, btree_key key);
+btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
 btree_node* create_leaf_node();
 
 btree* btree_create(btree_type key_type) {
@@ -61,14 +62,14 @@ key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value) {
 key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 	int insert_index;
 	if(btn->key_count < 4) {
-		array_insert(btn->keys, key, btn->key_count, sizeof(btree_key)*4, &insert_index);
+		key_array_insert(btn->keys, key, btn->key_count, sizeof(btree_key)*4, &insert_index);
 		//insert child in correct spot
 		memmove(btn->children + insert_index + 2, btn->children + insert_index + 1, sizeof(btree_child)*(btn->key_count - insert_index));
 		btn->children[insert_index + 1] = value;
 		//
 		btn->key_count++;
 	} else {
-		btree_key largest_key = array_insert(btn->keys, key, 4, sizeof(btree_key)*4, &insert_index);
+		btree_key largest_key = key_array_insert(btn->keys, key, 4, sizeof(btree_key)*4, &insert_index);
 		btree_child largest_key_value = btn->children[4];
 
 		//insert children and store last value
@@ -118,28 +119,26 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 	return NULL;
 }
 
-btree_key array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index) {
-	int length = size/sizeof(btree_key);
-	btree_key last = arr[num - 1];
-	int i;
-	for(i = 0; i < num; i++) {
-		if(value < arr[i]) {
-			//prevent buffer overflows
-			if(num == length) num--;
-			memmove(arr + i + 1, arr + i, sizeof(btree_key)*(num - i));
-			break;
+btree_child btree_search(btree* bt, btree_key key) {
+	return node_search(bt->root, key);
+}
+
+btree_child node_search(btree_node* btn, btree_key key) {
+	btree_child value = { NULL };
+
+	if(!btn->is_leaf) {
+		int i;
+		for(i =	0; i < btn->key_count && key >= btn->keys[i]; i++);
+		value = node_search(btn->children[i].node, key);
+	} else {
+		int i;
+		for(i =	0; i < btn->key_count && key != btn->keys[i]; i++);
+		if(i != btn->key_count) {
+			return btn->children[i + 1];
 		}
 	}
-	if(i < length) {
-		arr[i] = value;
-	} else {
-		last = value;
-	}
 
-	if(index != NULL) {
-		*index = i;
-	}
-	return last;
+	return value;
 }
 
 void dump_keys(btree_node* btn, int depth) {
@@ -170,6 +169,30 @@ void dump_values(btree* bt) {
 	}
 
 	printf("\n");
+}
+
+btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index) {
+	int length = size/sizeof(btree_key);
+	btree_key last = arr[num - 1];
+	int i;
+	for(i = 0; i < num; i++) {
+		if(value < arr[i]) {
+			//prevent buffer overflows
+			if(num == length) num--;
+			memmove(arr + i + 1, arr + i, sizeof(btree_key)*(num - i));
+			break;
+		}
+	}
+	if(i < length) {
+		arr[i] = value;
+	} else {
+		last = value;
+	}
+
+	if(index != NULL) {
+		*index = i;
+	}
+	return last;
 }
 
 btree_node* create_leaf_node() {
