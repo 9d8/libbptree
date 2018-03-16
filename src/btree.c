@@ -8,6 +8,7 @@ typedef struct {
 	btree_child	nodes[2];
 } key_children;
 
+void destroy_nodes(btree_node* btn);
 key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value);
 key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
 btree_child node_search(btree_node* btni, btree_key key);
@@ -23,8 +24,17 @@ btree* btree_create(btree_type key_type) {
 }
 
 void btree_destroy(btree* bt) {
-	free(bt->root);
+	destroy_nodes(bt->root);
 	free(bt);
+}
+
+void destroy_nodes(btree_node* btn) {
+	if(!btn->is_leaf) {
+		for(int i = 0; i < btn->key_count + 1; i++) {
+			destroy_nodes(btn->children[i].node);
+		}
+	}
+	free(btn);
 }
 
 void btree_insert(btree* bt, btree_key key, void* value) {

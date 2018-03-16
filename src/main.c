@@ -31,5 +31,6 @@ int main(int argc, char** argv) {
 	char* found = btree_search(bt, 11).data;
 	printf("%s's bizzare adventure\n", found);
 
+	btree_destroy(bt);
 	return 0;
 }
