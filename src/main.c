@@ -3,11 +3,11 @@
 
 int main(int argc, char** argv) {
 	btree* bt = btree_create(TYPE_INT);
-	btree_child test = { "test" };
-	btree_child test2 = { "test2" };
-	btree_child test3 = { "test3" };
-	btree_child test4 = { "test4" };
-	btree_child jojo = { "jojo" };
+	char* test = "test";
+	char* test2 = "test2";
+	char* test3 = "test3";
+	char* test4 = "test4";
+	char* jojo = "jojo";
 	btree_insert(bt, 1, test);
 	btree_insert(bt, 4, test2);
 	btree_insert(bt, 5, test3);

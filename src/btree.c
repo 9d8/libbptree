@@ -8,7 +8,6 @@ typedef struct {
 	btree_child	nodes[2];
 } key_children;
 
-key_children* btree_insert_aux(btree_node* btn, btree_key key, btree_child value);
 key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value);
 key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
 btree_child node_search(btree_node* btni, btree_key key);
@@ -28,15 +27,15 @@ void btree_destroy(btree* bt) {
 	free(bt);
 }
 
-void btree_insert(btree* bt, btree_key key, btree_child value) {
-	key_children* return_data;
-	if((return_data = leaf_insert(bt->root, key, value)) != NULL) {
+void btree_insert(btree* bt, btree_key key, void* value) {
+	btree_child btree_value = { .data = value };
+	key_children* child_node_data;
+	if((child_node_data = leaf_insert(bt->root, key, btree_value)) != NULL) {
 		bt->root = create_leaf_node();
-		bt->root->children[0] = return_data->nodes[0]; 
+		bt->root->children[0] = child_node_data->nodes[0]; 
 		bt->root->is_leaf = 0;
-		printf("val: %i\n", return_data->key);
-		node_insert(bt->root, return_data->key, return_data->nodes[1]);
-		free(return_data);
+		node_insert(bt->root, child_node_data->key, child_node_data->nodes[1]);
+		free(child_node_data);
 	}
 }
 
@@ -80,8 +79,6 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 			largest_key_value = value;
 		}
 		
-		dump_keys(btn, 0);
-
 		//turning btn into left node
 		btree_node* left_node = btn;
 		btree_node* right_node = create_leaf_node();
@@ -106,9 +103,6 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 			right_node->is_leaf = 0;
 		}
 		left_node->key_count = 2;
-		
-		dump_keys(left_node, 0);
-		dump_keys(right_node, 0);
 
 		key_children* left_right_nodes = malloc(sizeof(key_children));
 		left_right_nodes->key = right_key;
@@ -193,6 +187,10 @@ btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size
 		*index = i;
 	}
 	return last;
+}
+
+int key_compare(btree_key* key1, btree_key* key2) {
+	return (key1 > key2);
 }
 
 btree_node* create_leaf_node() {
