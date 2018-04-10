@@ -11,6 +11,8 @@ typedef struct {
 void destroy_nodes(btree_node* btn);
 key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value);
 key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
+int leaf_delete(btree_node* btn, btree_key key);
+int node_delete(btree_node* btn, btree_key key, btree_node* sib);
 btree_child node_search(btree_node* btni, btree_key key);
 btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
 btree_node* create_leaf_node();
@@ -123,6 +125,51 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 	return NULL;
 }
 
+void btree_delete(btree* bt, btree_key key) {
+	leaf_delete(bt->root, key);	
+}
+
+//WARNING: this does not account for children yet
+int leaf_delete(btree_node* btn, btree_key key) {
+	int delete_code = 0;
+
+	if(!btn->is_leaf) {
+		int i;
+		for(i = 0; i < btn->key_count && key >= btn->keys[i]; i++);
+		//i != 1 for overwrite since rightmost child has no right parent
+		if((delete_code = leaf_delete(btn->children[i].node, key)) == 1 && i != 0) {
+			//overwrite right parent
+			//i-1 since i equals child index, not key index
+			btn->keys[i-1] = btn->children[i].node->keys[0];
+		}
+	} else {
+		//if right >= left or right <= 2 && left <= 2: right
+		//else: left
+		delete_code = node_delete(btn, key, NULL);
+	}	
+
+	return delete_code;
+}
+
+//return codes:
+//	0 - Do nothing
+//	1 - Overwrite right parent key
+//	2 - Delete ___ parent key
+int node_delete(btree_node* btn, btree_key key, btree_node* sib) {
+	int code = 0;
+	if(btn->key_count >= 3) {
+		int i;
+		for(i = 0; i < btn->key_count && key != btn->keys[i]; i++);
+		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_child)*(btn->key_count - i - 1));
+		btn->key_count--;
+		if(i == 0) {
+			code = 1;
+		}
+	}
+
+	return code;
+}
+
 btree_child btree_search(btree* bt, btree_key key) {
 	return node_search(bt->root, key);
 }
@@ -181,7 +228,8 @@ btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size
 	int i;
 	for(i = 0; i < num; i++) {
 		if(value < arr[i]) {
-			//prevent buffer overflows
+			//prevent buffer overflows.
+			//since loop breaks, we can modify num.
 			if(num == length) num--;
 			memmove(arr + i + 1, arr + i, sizeof(btree_key)*(num - i));
 			break;
