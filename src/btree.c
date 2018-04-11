@@ -8,11 +8,16 @@ typedef struct {
 	btree_child	nodes[2];
 } key_children;
 
+typedef struct {
+	int left;
+	btree_node* node;
+} node_sibling;
+
 void destroy_nodes(btree_node* btn);
 key_children* leaf_insert(btree_node* btn, btree_key key, btree_child value);
 key_children* node_insert(btree_node* btn, btree_key key, btree_child value);
-int leaf_delete(btree_node* btn, btree_key key);
-int node_delete(btree_node* btn, btree_key key, btree_node* sib);
+int leaf_delete(btree_node* btn, btree_key key, node_sibling* sib);
+int node_delete(btree_node* btn, btree_key key, node_sibling* sib);
 btree_child node_search(btree_node* btni, btree_key key);
 btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
 btree_node* create_leaf_node();
@@ -126,26 +131,53 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 }
 
 void btree_delete(btree* bt, btree_key key) {
-	leaf_delete(bt->root, key);	
+	leaf_delete(bt->root, key, NULL);	
 }
 
 //WARNING: this does not account for children yet
-int leaf_delete(btree_node* btn, btree_key key) {
+int leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 	int delete_code = 0;
 
 	if(!btn->is_leaf) {
 		int i;
 		for(i = 0; i < btn->key_count && key >= btn->keys[i]; i++);
-		//i != 1 for overwrite since rightmost child has no right parent
-		if((delete_code = leaf_delete(btn->children[i].node, key)) == 1 && i != 0) {
-			//overwrite right parent
+		//sibling to be modified when child merges or steals
+		node_sibling sibdata = {1,NULL};
+		if(i == 0) {
+			sibdata.left = 0;
+			sibdata.node = btn->children[i+1].node;	
+		} else if(i == btn->key_count) {
+			sibdata.node = btn->children[i-1].node;	
+		} else {
+			btree_node* left_sib = btn->children[i-1].node;
+			btree_node* right_sib = btn->children[i+1].node;
+			if(left_sib->key_count >= right_sib->key_count || (left_sib->key_count <= 2 && right_sib->key_count <= 2)) {
+				sibdata.node = left_sib;
+			} else {
+				sibdata.left = 0;
+				sibdata.node = right_sib;
+			}
+		}
+
+		//i != 1 for overwrite since rightmost child has no left parent
+		btree_node* child = btn->children[i].node;
+		if((delete_code = leaf_delete(child, key, &sibdata)) == 1 && i != 0) {
+			//overwrite left parent
 			//i-1 since i equals child index, not key index
-			btn->keys[i-1] = btn->children[i].node->keys[0];
+			btn->keys[i-1] = child->keys[0];
+		} else if(delete_code == 2) {
+			if(i == 0) {
+				//be wary of this
+				i++;
+			}
+			if(sibdata.left) {
+				btn->keys[i-1] = child->keys[0];
+			} else {
+				btn->keys[i-1] = sibdata.node->keys[0];
+			}
 		}
 	} else {
-		//if right >= left or right <= 2 && left <= 2: right
-		//else: left
-		delete_code = node_delete(btn, key, NULL);
+		delete_code = node_delete(btn, key, sib);
 	}	
 
 	return delete_code;
@@ -153,9 +185,10 @@ int leaf_delete(btree_node* btn, btree_key key) {
 
 //return codes:
 //	0 - Do nothing
-//	1 - Overwrite right parent key
-//	2 - Delete ___ parent key
-int node_delete(btree_node* btn, btree_key key, btree_node* sib) {
+//	1 - Normal delete + need to overwrite left parent key
+//	2 - Steal occured
+//	3 - Merge occured
+int node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 	int code = 0;
 	if(btn->key_count >= 3) {
 		int i;
@@ -165,6 +198,30 @@ int node_delete(btree_node* btn, btree_key key, btree_node* sib) {
 		if(i == 0) {
 			code = 1;
 		}
+	//steal
+	} else if(sib != NULL && sib->node->key_count >= 3) {
+		//delete key
+		int i;
+		for(i = 0; i < btn->key_count && key != btn->keys[i]; i++);
+		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_child)*(btn->key_count - i - 1));
+		btree_key sibkey;
+		btree_child sibchild;
+		if(sib->left) {
+			sibkey = sib->node->keys[sib->node->key_count-1];
+			sibchild = sib->node->children[sib->node->key_count];
+		} else {
+			sibkey = sib->node->keys[0];
+			sibchild = sib->node->children[1];
+		}
+		//this is necessary for node_insert to work properly
+		btn->key_count--;
+		//careful: make sure child doesnt get deallocated by node_delete when deleteing sib->node
+		node_insert(btn, sibkey, sibchild);
+		node_delete(sib->node, sibkey, NULL);
+		code = 2;
+	//merge
+	} else {
+
 	}
 
 	return code;

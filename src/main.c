@@ -9,14 +9,14 @@ int main(int argc, char** argv) {
 	btree_insert(bt, 7, test);
 	btree_insert(bt, 8, test);
 	btree_insert(bt, 15, test);
-	btree_insert(bt, 27, test);
-	btree_insert(bt, 5, test);
 	printf("--------------------\n");
 	dump_keys(bt->root, 100);
 	printf("--------------------\n");
+	btree_delete(bt, 6);
+	dump_keys(bt->root, 100);
+	printf("--------------------\n");
+	btree_insert(bt, 6, test);
 	btree_delete(bt, 15);
-	btree_delete(bt, 5);
-	btree_delete(bt, 8);
 	dump_keys(bt->root, 100);
 	printf("--------------------\n");
 	btree_destroy(bt);
