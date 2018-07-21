@@ -24,7 +24,7 @@ $(TARGET): $(OBJECTS)
 
 debug: CFLAGS=-ggdb
 debug: $(OBJECTS)
-	$(CC) -o $(BUILDDIR)/$(TARGET) $^ $(CFLAGS) $(INCLUDE) $(MAGICKWAND) $(LIB)
+	$(CC) -o $(BUILDDIR)/$(TARGET) $^ $(CFLAGS) $(INCLUDE) $(LIB)
 
 .PHONY: clean force
 clean:
