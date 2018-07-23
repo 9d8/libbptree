@@ -175,29 +175,29 @@ delete_info* leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 			btn->keys[i-1] = child->keys[0];
 			di->return_code = 0;
 		} else if(di->return_code == 2) {
-			if(i != 0) {
-				if(!sibdata.left) {
-					child->keys[child->key_count-1] = btn->keys[i];
-					btn->keys[i] = min(sibdata.node);
-				} else {
-					child->keys[0] = btn->keys[i-1];
-					btn->keys[i-1] = max(sibdata.node);
-				}
+			if(!sibdata.left) {
+				child->keys[child->key_count-1] = btn->keys[i];
+				btn->keys[i] = min(sibdata.node);
+			} else if(i != 0) {
+				//child->keys[0] = btn->keys[i-1];
+				//btn->keys[i-1] = max(sibdata.node);
 			}
 			di->return_code = 0;
 		} else if(di->return_code == 3) {
 			if(i == 0) {
 				//risky move. Try not to modify i
-				i++;
+				//i++;
 			}
 			
 			free(di);
-			di = node_delete(btn, btn->keys[i-1], sib);
-
-			//still need to overwrite with parent
+			if(sibdata.left) {
+				di = node_delete(btn, btn->keys[i-1], sib);
+			} else {
+				di = node_delete(btn, btn->keys[i], sib);
+			}
 		}
 
-		if(i != 0 /** key == btn->keys[i-1]**/) {
+		if(i != 0) {
 			btn->keys[i-1] = min(child);
 		}
 	} else {
@@ -251,7 +251,6 @@ delete_info* node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 			node_delete(sib->node, sibkey, NULL);
 		} else {
 			if(sib->left) {
-				printf("key 1: %d\n", btn->keys[0]);
 				//dont need to worry about overflow since delete above garuntees room for shift.
 				memmove(btn->keys + 1, btn->keys, sizeof(btree_key)*btn->key_count);
 				memmove(btn->children + 1, btn->children, sizeof(btree_child)*btn->key_count+1);
@@ -261,7 +260,6 @@ delete_info* node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 				btn->key_count++;
 				
 				node_delete(sib->node, btn->keys[0], NULL);
-				printf("key 2: %d\n", btn->keys[0]);
 			} else {
 				node_insert(btn, sib->node->keys[0], sib->node->children[0]);	
 				
@@ -353,18 +351,23 @@ btree_key max(btree_node* btn) {
 	return node->keys[node->key_count - 1];
 }
 
-void dump_keys(btree_node* btn, int depth) {
+void dump_keys_aux(btree_node* btn, int depth) {
+	printf("%*s", depth*4, "");
 	for(int i = 0; i < btn->key_count; i++) {
 		printf("%d:%s ", btn->keys[i], btn->children[i + 1].data);
 	}
 	
 	printf("\n");
 	
-	if(!btn->is_leaf && depth > 0) {
+	if(!btn->is_leaf) {
 		for(int i = 0; i < btn->key_count + 1; i++) {
-			dump_keys(btn->children[i].node, depth - 1);
+			dump_keys_aux(btn->children[i].node, depth + 1);
 		}
 	}
+}
+
+void dump_keys(btree_node* btn) {
+	dump_keys_aux(btn, 0);
 }
 
 void dump_values(btree* bt) {
