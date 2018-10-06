@@ -25,6 +25,7 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib);
 btree_child node_search(btree_node* btni, btree_key key);
 btree_key min(btree_node* btn);
 btree_key max(btree_node* btn);
+void dump_keys_aux(btree_node* btn, int depth);
 btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
 btree_node* create_leaf_node();
 
@@ -172,7 +173,9 @@ DELETE_CODE leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 		btree_node* child = btn->children[i].node;
 		di = leaf_delete(child, key, &sibdata);
 
-		if(di == 1 && i != 0) {
+		if(di == -1) {
+			return di;
+		} else if(di == 1 && i != 0) {
 			di = 0;
 		} else if(di == 2) {
 			// (!sibdata.left) == (i == 0)
@@ -208,6 +211,7 @@ DELETE_CODE leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 }
 
 //return codes:
+// -1 - Key not found
 //	0 - Do nothing
 //	1 - Normal delete + need to overwrite left parent key
 //	2 - Steal occured
