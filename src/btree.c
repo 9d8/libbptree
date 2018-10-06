@@ -187,7 +187,7 @@ DELETE_CODE leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 		} else if(di == 3) {
 			if(sibdata.left) {
 				di = node_delete(btn, btn->keys[i-1], sib);
-				if(di == 2) {
+				if(di == 2 || i > btn->key_count) {
 					i--;
 				}
 			} else {
