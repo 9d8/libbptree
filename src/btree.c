@@ -4,6 +4,8 @@
 #include <stdio.h>
 
 #define DELETE_CODE int
+#define SHIFT_FORWARD(arr, len) memmove(arr + 1, arr, len)
+#define SHIFT_BACK(arr, len) memmove(arr, arr + 1, len)
 
 typedef struct {
 	btree_key key;
@@ -84,7 +86,7 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 	if(btn->key_count < 4) {
 		key_array_insert(btn->keys, key, btn->key_count, sizeof(btree_key)*4, &insert_index);
 		//insert child in correct spot
-		memmove(btn->children + insert_index + 2, btn->children + insert_index + 1, sizeof(btree_child)*(btn->key_count - insert_index));
+		SHIFT_FORWARD(btn->children + insert_index + 1, sizeof(btree_child)*(btn->key_count - insert_index));
 		btn->children[insert_index + 1] = value;
 		//
 		btn->key_count++;
@@ -94,7 +96,7 @@ key_children* node_insert(btree_node* btn, btree_key key, btree_child value) {
 
 		//insert children and store last value
 		if(insert_index < 4) {
-			memmove(btn->children + insert_index + 2, btn->children + insert_index + 1, sizeof(btree_child)*(3 - insert_index));
+			SHIFT_FORWARD(btn->children + insert_index + 1, sizeof(btree_child)*(3 - insert_index));
 			btn->children[insert_index + 1] = value;
 		} else {
 			largest_key_value = value;
@@ -219,8 +221,8 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 	if(i == btn->key_count) {
 		di = -1;	
 	} else if(btn->key_count >= 3 || sib == NULL) {
-		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_key)*(btn->key_count - i - 1));
-		memmove(btn->children + i + 1, btn->children + i + 2, sizeof(btree_child)*(btn->key_count - i - 1));
+		SHIFT_BACK(btn->keys + i, sizeof(btree_key)*(btn->key_count - i - 1));
+		SHIFT_BACK(btn->children + i + 1, sizeof(btree_child)*(btn->key_count - i - 1));
 		btn->key_count--;
 
 		if(i == 0 && btn->is_leaf) {
@@ -229,8 +231,9 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 	//steal
 	} else if(sib->node->key_count >= 3) {
 		//delete key
-		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_key)*(btn->key_count - i - 1));
-		memmove(btn->children + i + 1, btn->children + i + 2, sizeof(btree_child)*(btn->key_count - i - 1));
+		SHIFT_BACK(btn->keys + i, sizeof(btree_key)*(btn->key_count - i - 1));
+		SHIFT_BACK(btn->children + i + 1, sizeof(btree_child)*(btn->key_count - i - 1));
+		
 		//this is necessary for node_insert to work properly
 		btn->key_count--;
 
@@ -249,8 +252,8 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 			node_delete(sib->node, sibkey, NULL);
 		} else if(sib->left) {
 			//dont need to worry about overflow since delete above garuntees room for shift.
-			memmove(btn->keys + 1, btn->keys, sizeof(btree_key)*btn->key_count);
-			memmove(btn->children + 1, btn->children, sizeof(btree_child)*(btn->key_count+1));
+			SHIFT_FORWARD(btn->keys, sizeof(btree_key)*btn->key_count);
+			SHIFT_FORWARD(btn->children, sizeof(btree_child)*(btn->key_count+1));
 
 			btn->keys[0] = sib->node->keys[sib->node->key_count-1];
 			btn->children[0] = sib->node->children[sib->node->key_count];
@@ -260,8 +263,8 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 		} else {
 			node_insert(btn, sib->node->keys[0], sib->node->children[0]);	
 			
-			memmove(sib->node->keys, sib->node->keys + 1, sizeof(btree_key)*(sib->node->key_count - 1));
-			memmove(sib->node->children, sib->node->children + 1, sizeof(btree_child)*(sib->node->key_count));
+			SHIFT_BACK(sib->node->keys, sizeof(btree_key)*(sib->node->key_count - 1));
+			SHIFT_BACK(sib->node->children, sizeof(btree_child)*(sib->node->key_count));
 			
 			sib->node->key_count--;
 		}
@@ -286,13 +289,13 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 				node_insert(merged, dead->keys[1],dead->children[2]);
 			}
 		} else if(sib->left) {
-			memmove(btn->children + 1, btn->children, sizeof(btree_child)*(i + 1)); 
+			SHIFT_FORWARD(btn->children, sizeof(btree_child)*(i + 1)); 
 			dead->keys[0] = min(dead->children[1].node);
 			dead->keys[1] = min(dead->children[2].node);
 			node_insert(merged, dead->keys[0], dead->children[1]);
 			node_insert(merged, dead->keys[1], dead->children[2]);
 		} else {
-			memmove(merged->children + i + 1, merged->children + i + 2, sizeof(btree_child)*(merged->key_count - i - 1)); 
+			SHIFT_BACK(merged->children + i + 1, sizeof(btree_child)*(merged->key_count - i - 1)); 
 			
 			merged->children[merged->key_count] = dead->children[0];
 			
@@ -390,7 +393,7 @@ btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size
 			//prevent buffer overflows.
 			//since loop breaks, we can modify num.
 			if(num == length) num--;
-			memmove(arr + i + 1, arr + i, sizeof(btree_key)*(num - i));
+			SHIFT_FORWARD(arr + i, sizeof(btree_key)*(num - i));
 			break;
 		}
 	}
