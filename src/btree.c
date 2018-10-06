@@ -24,7 +24,6 @@ btree_child node_search(btree_node* btni, btree_key key);
 btree_key min(btree_node* btn);
 btree_key max(btree_node* btn);
 btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size, int* index);
-void key_array_delete(btree_key* arr, btree_key value, int num, int* index);
 btree_node* create_leaf_node();
 
 btree* btree_create(btree_type key_type) {
@@ -183,13 +182,14 @@ DELETE_CODE leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 		} else if(di == 3) {
 			if(sibdata.left) {
 				di = node_delete(btn, btn->keys[i-1], sib);
+				if(di == 2) {
+					i--;
+				}
 			} else {
 				di = node_delete(btn, btn->keys[i], sib);
 			}
 			
 			// On merge, child may not exist anymore. Thus do not use past this point
-
-			printf("i is %d with key[i]: %d\n", i, btn->keys[i]);
 		}
 
 		if(i != 0) {
@@ -213,23 +213,24 @@ DELETE_CODE leaf_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 //function assumes key exists. If it does not, bad things will happen.
 DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 	DELETE_CODE di = 0;
-	int index;
+	int i;
+	for(i = 0; i < btn->key_count && key != btn->keys[i]; i++);
 
-	if(btn->key_count >= 3 || sib == NULL) {
-		key_array_delete(btn->keys, key, btn->key_count, &index);
-		//maybe this only works for leaf nodes...
-		memmove(btn->children + index + 1, btn->children + index + 2, sizeof(btree_child)*(btn->key_count - index - 1));
+	if(i == btn->key_count) {
+		di = -1;	
+	} else if(btn->key_count >= 3 || sib == NULL) {
+		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_key)*(btn->key_count - i - 1));
+		memmove(btn->children + i + 1, btn->children + i + 2, sizeof(btree_child)*(btn->key_count - i - 1));
 		btn->key_count--;
 
-		if(index == 0 && btn->is_leaf) {
+		if(i == 0 && btn->is_leaf) {
 			di = 1;
 		}
 	//steal
 	} else if(sib->node->key_count >= 3) {
 		//delete key
-		key_array_delete(btn->keys, key, btn->key_count, &index);
-		printf("key: %d index: %d kc: %d\n", key, index, btn->key_count);
-		memmove(btn->children + index + 1, btn->children + index + 2, sizeof(btree_child)*(btn->key_count - index - 1));
+		memmove(btn->keys + i, btn->keys + i + 1, sizeof(btree_key)*(btn->key_count - i - 1));
+		memmove(btn->children + i + 1, btn->children + i + 2, sizeof(btree_child)*(btn->key_count - i - 1));
 		//this is necessary for node_insert to work properly
 		btn->key_count--;
 
@@ -268,8 +269,6 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 		di = 2;
 	//merge
 	} else {
-		printf("left: %d\n", sib->left);
-		printf("key: %d\n", key);
 		btree_node* merged = sib->node;
 		btree_node* dead = btn;
 		//always merge towards the left node.
@@ -286,31 +285,21 @@ DELETE_CODE node_delete(btree_node* btn, btree_key key, node_sibling* sib) {
 			if(!sib->left) {
 				node_insert(merged, dead->keys[1],dead->children[2]);
 			}
+		} else if(sib->left) {
+			memmove(btn->children + 1, btn->children, sizeof(btree_child)*(i + 1)); 
+			dead->keys[0] = min(dead->children[1].node);
+			dead->keys[1] = min(dead->children[2].node);
+			node_insert(merged, dead->keys[0], dead->children[1]);
+			node_insert(merged, dead->keys[1], dead->children[2]);
 		} else {
-			int i;
-			for(i = 0; i <= btn->key_count && key != btn->keys[i]; i++);
+			memmove(merged->children + i + 1, merged->children + i + 2, sizeof(btree_child)*(merged->key_count - i - 1)); 
 			
-			if(sib->left) {
-				memmove(btn->children + 1, btn->children, sizeof(btree_child)*(i + 1)); 
-				dead->keys[0] = min(dead->children[1].node);
-				dead->keys[1] = min(dead->children[2].node);
-				node_insert(merged, dead->keys[0], dead->children[1]);
-				node_insert(merged, dead->keys[1], dead->children[2]);
-			} else {
-				memmove(merged->children + i + 1, merged->children + i + 2, sizeof(btree_child)*(merged->key_count - i - 1)); 
-				printf("%d\n", merged->key_count - i - 1);
-//				//this guy may also be redundant.
-//				if(i < merged->key_count - 1) {
-//					merged->keys[i] = min(merged->children[i+1].node);
-//				}
-				
-				merged->children[merged->key_count] = dead->children[0];
-				
-				merged->keys[merged->key_count - 1] = min(dead->children[0].node);
-				node_insert(merged, dead->keys[0], dead->children[1]);
-				node_insert(merged, dead->keys[1], dead->children[2]);
-			}	
-		}
+			merged->children[merged->key_count] = dead->children[0];
+			
+			merged->keys[merged->key_count - 1] = min(dead->children[0].node);
+			node_insert(merged, dead->keys[0], dead->children[1]);
+			node_insert(merged, dead->keys[1], dead->children[2]);
+		}	
 
 		free(dead);
 		di = 3;
@@ -415,17 +404,6 @@ btree_key key_array_insert(btree_key* arr, btree_key value, int num, size_t size
 		*index = i;
 	}
 	return last;
-}
-
-void key_array_delete(btree_key* arr, btree_key value, int num, int* index) {
-	int i;
-	for(i = 0; i < num && value != arr[i]; i++);
-	if(i != num) {
-		memmove(arr + i, arr + i + 1, sizeof(btree_key)*(num - i - 1));
-	}
-	if(index != NULL) {
-		*index = i;
-	}
 }
 
 int key_compare(btree_key* key1, btree_key* key2) {
