@@ -84,20 +84,20 @@ key_children* leaf_insert(bptree_node* btn, bptree_key key, bptree_child value) 
 
 key_children* node_insert(bptree_node* btn, bptree_key key, bptree_child value) {
 	int insert_index;
-	if(btn->key_count < 4) {
-		key_array_insert(btn->keys, key, btn->key_count, sizeof(bptree_key)*4, &insert_index);
+	if(btn->key_count < MAX_KEYS) {
+		key_array_insert(btn->keys, key, btn->key_count, sizeof(bptree_key)*MAX_KEYS, &insert_index);
 		//insert child in correct spot
 		SHIFT_FORWARD(btn->children + insert_index + 1, sizeof(bptree_child)*(btn->key_count - insert_index));
 		btn->children[insert_index + 1] = value;
 		//
 		btn->key_count++;
 	} else {
-		bptree_key largest_key = key_array_insert(btn->keys, key, 4, sizeof(bptree_key)*4, &insert_index);
-		bptree_child largest_key_value = btn->children[4];
+		bptree_key largest_key = key_array_insert(btn->keys, key, MAX_KEYS, sizeof(bptree_key)*MAX_KEYS, &insert_index);
+		bptree_child largest_key_value = btn->children[MAX_KEYS];
 
 		//insert children and store last value
-		if(insert_index < 4) {
-			SHIFT_FORWARD(btn->children + insert_index + 1, sizeof(bptree_child)*(3 - insert_index));
+		if(insert_index < MAX_KEYS) {
+			SHIFT_FORWARD(btn->children + insert_index + 1, sizeof(bptree_child)*(MAX_KEYS - 1 - insert_index));
 			btn->children[insert_index + 1] = value;
 		} else {
 			largest_key_value = value;
@@ -106,27 +106,28 @@ key_children* node_insert(bptree_node* btn, bptree_key key, bptree_child value) 
 		//turning btn into left node
 		bptree_node* left_node = btn;
 		bptree_node* right_node = create_leaf_node();
-		bptree_key right_key = btn->keys[2];
+		bptree_key right_key = btn->keys[MAX_KEYS - MIN_KEYS];
 
 		//if splitting non-leaf, dont keep middle key and set is_leaf to false
 		if(btn->is_leaf) {
-			memcpy(right_node->keys, left_node->keys + 2, sizeof(bptree_key)*2);
-			memcpy(right_node->children + 1, left_node->children + 3, sizeof(bptree_child)*2);
-			right_node->keys[2] = largest_key;
-			right_node->children[3] = largest_key_value;
-			right_node->key_count = 3;
+			memcpy(right_node->keys, left_node->keys + (MAX_KEYS - MIN_KEYS), sizeof(bptree_key)*MIN_KEYS);
+			memcpy(right_node->children + 1, left_node->children + (MAX_KEYS - MIN_KEYS) + 1, sizeof(bptree_child)*MIN_KEYS);
+			right_node->keys[MIN_KEYS] = largest_key;
+			right_node->children[MIN_KEYS + 1] = largest_key_value;
+			right_node->key_count = MIN_KEYS + 1;
 			//link node to next node
 			right_node->children[0] = left_node->children[0];
 			left_node->children[0].node = right_node;
 		} else {
-			memcpy(right_node->keys, left_node->keys + 3, sizeof(bptree_key));
-			memcpy(right_node->children, left_node->children + 3, sizeof(bptree_child)*2);
-			right_node->keys[1] = largest_key;
-			right_node->children[2] = largest_key_value;
-			right_node->key_count = 2;
+			//EVEN BPTREE ERROR OCCURS SOMEWHERE IN THIS BLOCK
+			memcpy(right_node->keys, left_node->keys + MIN_KEYS + 1, sizeof(bptree_key)*(MIN_KEYS - 1));
+			memcpy(right_node->children, left_node->children + (MAX_KEYS - MIN_KEYS) + 1, sizeof(bptree_child)*MIN_KEYS);
+			right_node->keys[MIN_KEYS - 1] = largest_key;
+			right_node->children[MIN_KEYS] = largest_key_value;
+			right_node->key_count = MIN_KEYS;
 			right_node->is_leaf = 0;
 		}
-		left_node->key_count = 2;
+		left_node->key_count = MAX_KEYS - MIN_KEYS;
 
 		key_children* left_right_nodes = malloc(sizeof(key_children));
 		left_right_nodes->key = right_key;

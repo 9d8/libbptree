@@ -1,6 +1,13 @@
 #ifndef BPTREE_H_
 #define BPTREE_H_
 
+/* These defines are currently experimental. Changing them can have unforseen
+ * consequences. */
+#define ORDER 5
+#define MAX_KEYS (ORDER - 1)
+#define MIN_KEYS (int)(ORDER/2.0f - 0.5f)
+#define MIN_CHILDREN (int)(ORDER/2.0f + 0.5f)
+
 typedef struct bptree_node bptree_node;
 typedef enum {TYPE_INT, TYPE_STRING} bptree_type;
 typedef union { void* data; bptree_node* node; } bptree_child;
@@ -15,8 +22,8 @@ typedef struct {
 struct bptree_node {
 	int key_count;
 	int is_leaf;
-	bptree_key keys[4];
-	bptree_child children[5];
+	bptree_key keys[MAX_KEYS];
+	bptree_child children[ORDER];
 };
 
 bptree* bptree_create(bptree_type key_type);
