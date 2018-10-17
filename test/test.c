@@ -24,7 +24,7 @@ int test_bptree(int* key_pool) {
 
 	int return_code = 0;
 	char* value = "test";
-	int total_keys = rand()%201 + 300;
+	int total_keys = rand()%41 + 10;
 	
 	printf("Attempting to insert %d random keys.\n", total_keys);
 	key_pool_shuffle(key_pool, 1000);
@@ -43,23 +43,23 @@ int test_bptree(int* key_pool) {
 	
 	dump_keys(bt->root);
 	
-	int total_deletes = rand()%5 + 1;
-	printf("Attempting to delete %d random keys.\n", total_deletes);
-	key_pool_shuffle(key_pool, total_keys);
-
-	for(int i = 0; i < total_deletes; i++) {
-		printf("del: %d\n", key_pool[i]);
-		bptree_delete(bt, key_pool[i]);
-	}
-	
-	for(int i = total_deletes; i < total_keys; i++) {
-		if(bptree_search(bt, key_pool[i]).node == NULL) {
-			printf("Unable to find key for value %d.\n", key_pool[i]);	
-			return_code = 1;
-		}
-	}
-		
-	dump_keys(bt->root);
+//	int total_deletes = rand()%5 + 1;
+//	printf("Attempting to delete %d random keys.\n", total_deletes);
+//	key_pool_shuffle(key_pool, total_keys);
+//
+//	for(int i = 0; i < total_deletes; i++) {
+//		printf("del: %d\n", key_pool[i]);
+//		bptree_delete(bt, key_pool[i]);
+//	}
+//	
+//	for(int i = total_deletes; i < total_keys; i++) {
+//		if(bptree_search(bt, key_pool[i]).node == NULL) {
+//			printf("Unable to find key for value %d.\n", key_pool[i]);	
+//			return_code = 1;
+//		}
+//	}
+//		
+//	dump_keys(bt->root);
 	
 	bptree_destroy(bt);
 	return return_code;

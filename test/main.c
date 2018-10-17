@@ -2,12 +2,14 @@
 #include <bptree.h>
 #include "test.h"
 
+void insert_test(bptree* bt);
 void delete_test(bptree* bt);
 
 int main(int argc, char** argv) {
 	bptree* bt = bptree_create(TYPE_INT);
-	//test_run();
-	delete_test(bt);
+	test_run();
+	//delete_test(bt);
+	//insert_test(bt);
 	bptree_destroy(bt);
 	return 0;
 }
@@ -29,11 +31,11 @@ void insert_test(bptree* bt) {
 	bptree_insert(bt, 3, test4);
 	bptree_insert(bt, 6, test4);
 	bptree_insert(bt, 101, test3);
-	bptree_insert(bt, 600, test4);
-	bptree_insert(bt, 77, test2);
-	bptree_insert(bt, 32, test4);
-	bptree_insert(bt, 85, test4);
-	bptree_insert(bt, 99, test4);
+//	bptree_insert(bt, 600, test4);
+//	bptree_insert(bt, 77, test2);
+//	bptree_insert(bt, 32, test4);
+//	bptree_insert(bt, 85, test4);
+//	bptree_insert(bt, 99, test4);
 	printf("--------------------\n");
 	dump_keys(bt->root);
 	printf("--------------------\n");
