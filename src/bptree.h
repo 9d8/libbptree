@@ -9,13 +9,12 @@
 #define MIN_CHILDREN (int)(ORDER/2.0f + 0.5f)
 
 typedef struct bptree_node bptree_node;
-typedef enum {TYPE_INT, TYPE_STRING} bptree_type;
 typedef union { void* data; bptree_node* node; } bptree_child;
-//typedef union {int i; char* str;} bptree_key;
-typedef int bptree_key;
+typedef union {int i; char* str;} bptree_key;
+//typedef int bptree_key;
 
 typedef struct {
-	bptree_type key_type;
+	int (*key_compare)(bptree_key key1, bptree_key key2);
 	bptree_node* root;
 } bptree;
 
@@ -26,12 +25,14 @@ struct bptree_node {
 	bptree_child children[ORDER];
 };
 
-bptree* bptree_create(bptree_type key_type);
-void bptree_destroy(bptree* bt);
-void bptree_insert(bptree* bt, bptree_key key, void* value);
-void bptree_delete(bptree* bt, bptree_key key);
-bptree_child bptree_search(bptree* bt, bptree_key key);
+bptree* bptree_create(int (*key_compare)(bptree_key key1, bptree_key key2));
+void bptree_destroy(bptree* bpt);
+void bptree_insert(bptree* bpt, bptree_key key, void* value);
+void bptree_delete(bptree* bpt, bptree_key key);
+void* bptree_search(bptree* bpt, bptree_key key);
+int bptree_int_key_compare(bptree_key key1, bptree_key key2);
+int bptree_str_key_compare(bptree_key key1, bptree_key key2);
 void dump_keys(bptree_node* btn);
-void dump_values(bptree* bt);
+void dump_values(bptree* bpt);
 
 #endif
