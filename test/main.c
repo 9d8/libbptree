@@ -7,7 +7,7 @@ void delete_test(bptree* bt);
 void string_test(bptree* bpt);
 
 int main(int argc, char** argv) {
-	bptree* bt = bptree_create(bptree_str_key_compare);
+	bptree* bt = bptree_create(bptree_keycmp_int);
 	string_test(bt);
 	//test_run();
 	//delete_test(bt);

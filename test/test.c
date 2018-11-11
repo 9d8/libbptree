@@ -20,7 +20,7 @@ void test_run() {
 
 int test_bptree(int* key_pool) {
 	printf("Creating a new bptree to test.\n");
-	bptree* bt = bptree_create(TYPE_INT);
+	bptree* bt = bptree_create(NULL);
 
 	int return_code = 0;
 	char* value = "test";
@@ -30,12 +30,12 @@ int test_bptree(int* key_pool) {
 	key_pool_shuffle(key_pool, 1000);
 	for(int i = 0; i < total_keys; i++) {
 		printf("bptree_insert(bt, %d, test);\n", key_pool[i]);
-		bptree_insert(bt, key_pool[i], value);
+		bptree_insert(bt, (bptree_key)key_pool[i], value);
 	}
 	printf("\n");
 
 	for(int i = 0; i < total_keys; i++) {
-		if(bptree_search(bt, key_pool[i]).node == NULL) {
+		if(bptree_search(bt, (bptree_key)key_pool[i]) == NULL) {
 			printf("Unable to find key for value %d.\n", key_pool[i]);	
 			return_code = 1;
 		}

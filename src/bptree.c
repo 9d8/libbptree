@@ -29,34 +29,6 @@ static void dump_keys_aux(bptree_node* btn, int depth);
 static bptree_key key_array_insert(bptree* bpt, bptree_key* arr, bptree_key value, int num, size_t size, int* index);
 static bptree_node* create_leaf_node();
 
-bptree* bptree_create(int (*key_compare)(bptree_key key1, bptree_key key2)) {
-	bptree* bt = malloc(sizeof(bptree));	
-	
-	if(key_compare == NULL) {
-		bt->key_compare = bptree_int_key_compare;
-	} else {
-		bt->key_compare = key_compare;
-	}
-	
-	bt->root = create_leaf_node();
-	bt->root->children[0].node = NULL;
-	return bt;
-}
-
-void bptree_destroy(bptree* bpt) {
-	destroy_nodes(bpt->root);
-	free(bpt);
-}
-
-void destroy_nodes(bptree_node* btn) {
-	if(!btn->is_leaf) {
-		for(int i = 0; i < btn->key_count + 1; i++) {
-			destroy_nodes(btn->children[i].node);
-		}
-	}
-	free(btn);
-}
-
 void bptree_insert(bptree* bpt, bptree_key key, void* value) {
 	bptree_child bptree_value = { .data = value };
 	key_children* child_node_data;
@@ -75,7 +47,7 @@ key_children* leaf_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 	if(!btn->is_leaf) {
 		int i;
 		for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++);
-		if((insert = leaf_insert(bpt, btn->children[i].node, key, value)) != NULL) {
+		if((insert = leaf_insert(bpt, btn->children[i].node_p, key, value)) != NULL) {
 			bptree_child right = insert->nodes[1];
 			key_children* insert_buff = node_insert(bpt, btn, insert->key, right);
 			free(insert);
@@ -123,7 +95,7 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 			right_node->key_count = MIN_KEYS + 1;
 			//link node to next node
 			right_node->children[0] = left_node->children[0];
-			left_node->children[0].node = right_node;
+			left_node->children[0].node_p = right_node;
 		} else {
 			//EVEN BPTREE ERROR OCCURS SOMEWHERE IN THIS BLOCK
 			memcpy(right_node->keys, left_node->keys + MIN_KEYS + 1, sizeof(bptree_key)*(MIN_KEYS - 1));
@@ -137,8 +109,8 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 
 		key_children* left_right_nodes = malloc(sizeof(key_children));
 		left_right_nodes->key = right_key;
-		left_right_nodes->nodes[0].node = left_node;
-		left_right_nodes->nodes[1].node = right_node;
+		left_right_nodes->nodes[0].node_p = left_node;
+		left_right_nodes->nodes[1].node_p = right_node;
 		return left_right_nodes;
 	}
 	return NULL;
@@ -147,7 +119,7 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 void bptree_delete(bptree* bpt, bptree_key key) {
 	leaf_delete(bpt, bpt->root, key, NULL);
 	if(bpt->root->key_count == 0 && !bpt->root->is_leaf) {
-		bptree_node* new_root = bpt->root->children[0].node;
+		bptree_node* new_root = bpt->root->children[0].node_p;
 		free(bpt->root);
 		bpt->root = new_root;
 	}
@@ -163,12 +135,12 @@ DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 		node_sibling sibdata = {1,NULL};
 		if(i == 0) {
 			sibdata.left = 0;
-			sibdata.node = btn->children[i+1].node;	
+			sibdata.node = btn->children[i+1].node_p;	
 		} else if(i == btn->key_count) {
-			sibdata.node = btn->children[i-1].node;	
+			sibdata.node = btn->children[i-1].node_p;	
 		} else {
-			bptree_node* left_sib = btn->children[i-1].node;
-			bptree_node* right_sib = btn->children[i+1].node;
+			bptree_node* left_sib = btn->children[i-1].node_p;
+			bptree_node* right_sib = btn->children[i+1].node_p;
 			if(left_sib->key_count >= right_sib->key_count || (left_sib->key_count <= 2 && right_sib->key_count <= 2)) {
 				sibdata.node = left_sib;
 			} else {
@@ -177,7 +149,7 @@ DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			}
 		}
 
-		bptree_node* child = btn->children[i].node;
+		bptree_node* child = btn->children[i].node_p;
 		di = leaf_delete(bpt, child, key, &sibdata);
 
 		if(di == -1) {
@@ -205,9 +177,9 @@ DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 		}
 
 		if(i != 0) {
-			btn->keys[i-1] = min(btn->children[i].node);
+			btn->keys[i-1] = min(btn->children[i].node_p);
 		} else if(i == 0) {
-			btn->keys[0] = min(btn->children[1].node);
+			btn->keys[0] = min(btn->children[1].node_p);
 		}	
 	} else {
 		//perhaps check if key does not exist and throw error
@@ -301,8 +273,8 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			}
 		} else if(sib->left) {
 			SHIFT_FORWARD(btn->children, sizeof(bptree_child)*(i + 1)); 
-			dead->keys[0] = min(dead->children[1].node);
-			dead->keys[1] = min(dead->children[2].node);
+			dead->keys[0] = min(dead->children[1].node_p);
+			dead->keys[1] = min(dead->children[2].node_p);
 			node_insert(bpt, merged, dead->keys[0], dead->children[1]);
 			node_insert(bpt, merged, dead->keys[1], dead->children[2]);
 		} else {
@@ -310,7 +282,7 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			
 			merged->children[merged->key_count] = dead->children[0];
 			
-			merged->keys[merged->key_count - 1] = min(dead->children[0].node);
+			merged->keys[merged->key_count - 1] = min(dead->children[0].node_p);
 			node_insert(bpt, merged, dead->keys[0], dead->children[1]);
 			node_insert(bpt, merged, dead->keys[1], dead->children[2]);
 		}	
@@ -332,7 +304,7 @@ bptree_child node_search(bptree* bpt, bptree_node* btn, bptree_key key) {
 	if(!btn->is_leaf) {
 		int i;
 		for(i =	0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++);
-		value = node_search(bpt, btn->children[i].node, key);
+		value = node_search(bpt, btn->children[i].node_p, key);
 	} else {
 		int i;
 		for(i =	0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) != 0; i++);
@@ -344,18 +316,10 @@ bptree_child node_search(bptree* bpt, bptree_node* btn, bptree_key key) {
 	return value;
 }
 
-int bptree_int_key_compare(bptree_key key1, bptree_key key2) {
-	return key1.i - key2.i;
-}
-
-int bptree_str_key_compare(bptree_key key1, bptree_key key2) {
-	return strcmp(key1.str, key2.str);
-}
-
 bptree_key min(bptree_node* btn) {
 	bptree_node* node = btn;
 	while(!node->is_leaf) {
-		node = node->children[0].node;
+		node = node->children[0].node_p;
 	}
 	return node->keys[0];
 }
@@ -363,7 +327,7 @@ bptree_key min(bptree_node* btn) {
 bptree_key max(bptree_node* btn) {
 	bptree_node* node = btn;
 	while(!node->is_leaf) {
-		node = node->children[node->key_count].node;
+		node = node->children[node->key_count].node_p;
 	}
 	return node->keys[node->key_count - 1];
 }
@@ -378,7 +342,7 @@ void dump_keys_aux(bptree_node* btn, int depth) {
 	
 	if(!btn->is_leaf) {
 		for(int i = 0; i < btn->key_count + 1; i++) {
-			dump_keys_aux(btn->children[i].node, depth + 1);
+			dump_keys_aux(btn->children[i].node_p, depth + 1);
 		}
 	}
 }
@@ -390,14 +354,14 @@ void dump_keys(bptree_node* btn) {
 void dump_values(bptree* bt) {
 	bptree_node* node = bt->root;
 	while(!node->is_leaf) {
-		node = node->children[0].node;
+		node = node->children[0].node_p;
 	}
 	
 	while(node != NULL) {
 		for(int i = 0; i < node->key_count; i++) {
 			printf("%s ", node->children[i + 1].data);
 		}
-		node = node->children[0].node;
+		node = node->children[0].node_p;
 	}
 
 	printf("\n");
