@@ -7,12 +7,12 @@ void delete_test(bptree* bt);
 void string_test(bptree* bpt);
 
 int main(int argc, char** argv) {
-	bptree* bt = bptree_create(bptree_keycmp_int);
+	bptree* bt = bptree_membpt_create();
 	string_test(bt);
 	//test_run();
 	//delete_test(bt);
 	//insert_test(bt);
-	bptree_destroy(bt);
+	bptree_membpt_destroy(bt);
 	return 0;
 }
 
@@ -39,13 +39,15 @@ void insert_test(bptree* bt) {
 //	bptree_insert(bt, ((bptree_key)85), test4);
 //	bptree_insert(bt, ((bptree_key)99), test4);
 	printf("--------------------\n");
-	dump_keys(bt->root);
+	dump_keys(bt, bt->root);
 	printf("--------------------\n");
 	dump_values(bt);
 	printf("--------------------\n");
 	char* found = bptree_search(bt, ((bptree_key)11));
 	printf("%s's bizzare adventure\n", found);
 }
+
+#ifndef DISABLE_DELETE
 
 void delete_test(bptree* bt) {
 	char* test = "test";
@@ -115,6 +117,8 @@ void delete_test(bptree* bt) {
 
 	dump_keys(bt->root);
 }
+
+#endif
 
 
 void string_test(bptree* bpt) {

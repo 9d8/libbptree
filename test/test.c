@@ -20,7 +20,7 @@ void test_run() {
 
 int test_bptree(int* key_pool) {
 	printf("Creating a new bptree to test.\n");
-	bptree* bt = bptree_create(NULL);
+	bptree* bt = bptree_membpt_create();
 
 	int return_code = 0;
 	char* value = "test";
@@ -41,7 +41,7 @@ int test_bptree(int* key_pool) {
 		}
 	}
 	
-	dump_keys(bt->root);
+	dump_keys(bt, bt->root);
 	
 //	int total_deletes = rand()%5 + 1;
 //	printf("Attempting to delete %d random keys.\n", total_deletes);
@@ -61,7 +61,7 @@ int test_bptree(int* key_pool) {
 //		
 //	dump_keys(bt->root);
 	
-	bptree_destroy(bt);
+	bptree_membpt_destroy(bt);
 	return return_code;
 }
 

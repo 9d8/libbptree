@@ -18,50 +18,60 @@ typedef struct {
 } node_sibling;
 
 static void destroy_nodes(bptree_node* btn);
-static key_children* leaf_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value);
-static key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value);
+static key_children* leaf_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value);
+static key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value);
 static DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib);
 static DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib);
-static bptree_child node_search(bptree* bpt, bptree_node* btn, bptree_key key);
-static bptree_key min(bptree_node* btn);
-static bptree_key max(bptree_node* btn);
-static void dump_keys_aux(bptree_node* btn, int depth);
+static bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key);
+static bptree_key min(bptree* bpt, bptree_addr naddr);
+static bptree_key max(bptree* bpt, bptree_addr naddr);
+static void dump_keys_aux(bptree* bpt, bptree_addr naddr, int depth);
 static bptree_key key_array_insert(bptree* bpt, bptree_key* arr, bptree_key value, int num, size_t size, int* index);
-static bptree_node* create_leaf_node();
 
 void bptree_insert(bptree* bpt, bptree_key key, void* value) {
 	bptree_child bptree_value = { .data = value };
 	key_children* child_node_data;
 	if((child_node_data = leaf_insert(bpt, bpt->root, key, bptree_value)) != NULL) {
-		bpt->root = create_leaf_node();
-		bpt->root->children[0] = child_node_data->nodes[0]; 
-		bpt->root->is_leaf = 0;
+		bpt->root = bpt->create_node();
+		bptree_node* root_node = bpt->get_node(bpt->root);
+		
+		root_node->children[0] = child_node_data->nodes[0]; 
+		root_node->is_leaf = 0;
 		node_insert(bpt, bpt->root, child_node_data->key, child_node_data->nodes[1]);
+	
+		bpt->write_node(bpt->root, root_node);
+		bpt->close_node(root_node);
+		
 		free(child_node_data);
 	}
 }
 
-key_children* leaf_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value) {
+key_children* leaf_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value) {
 	key_children* insert = NULL;
+	bptree_node* btn = bpt->get_node(naddr);
 
 	if(!btn->is_leaf) {
 		int i;
 		for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++);
-		if((insert = leaf_insert(bpt, btn->children[i].node_p, key, value)) != NULL) {
+		if((insert = leaf_insert(bpt, btn->children[i].addr, key, value)) != NULL) {
 			bptree_child right = insert->nodes[1];
-			key_children* insert_buff = node_insert(bpt, btn, insert->key, right);
+			key_children* insert_buff = node_insert(bpt, naddr, insert->key, right);
 			free(insert);
 			insert = insert_buff;
 		}
 	} else {
-		insert = node_insert(bpt, btn, key, value);
+		insert = node_insert(bpt, naddr, key, value);
 	}
 
+	bpt->close_node(btn);
 	return insert;
 }
 
-key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value) {
+key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value) {
 	int insert_index;
+	key_children* left_right_nodes = NULL;
+	bptree_node* btn = bpt->get_node(naddr);
+
 	if(btn->key_count < MAX_KEYS) {
 		key_array_insert(bpt, btn->keys, key, btn->key_count, sizeof(bptree_key)*MAX_KEYS, &insert_index);
 		//insert child in correct spot
@@ -83,7 +93,9 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 		
 		//turning btn into left node
 		bptree_node* left_node = btn;
-		bptree_node* right_node = create_leaf_node();
+		
+		bptree_addr right_addr = bpt->create_node();
+		bptree_node* right_node = bpt->get_node(right_addr);
 		bptree_key right_key = btn->keys[MAX_KEYS - MIN_KEYS];
 
 		//if splitting non-leaf, dont keep middle key and set is_leaf to false
@@ -95,7 +107,7 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 			right_node->key_count = MIN_KEYS + 1;
 			//link node to next node
 			right_node->children[0] = left_node->children[0];
-			left_node->children[0].node_p = right_node;
+			left_node->children[0].addr = right_addr;
 		} else {
 			//EVEN BPTREE ERROR OCCURS SOMEWHERE IN THIS BLOCK
 			memcpy(right_node->keys, left_node->keys + MIN_KEYS + 1, sizeof(bptree_key)*(MIN_KEYS - 1));
@@ -106,15 +118,22 @@ key_children* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_
 			right_node->is_leaf = 0;
 		}
 		left_node->key_count = MAX_KEYS - MIN_KEYS;
+	
+		bpt->write_node(right_addr, right_node);
+		bpt->close_node(right_node);
 
-		key_children* left_right_nodes = malloc(sizeof(key_children));
+		left_right_nodes = malloc(sizeof(key_children));
 		left_right_nodes->key = right_key;
-		left_right_nodes->nodes[0].node_p = left_node;
-		left_right_nodes->nodes[1].node_p = right_node;
-		return left_right_nodes;
+		left_right_nodes->nodes[0].addr = naddr;
+		left_right_nodes->nodes[1].addr = right_addr;
 	}
-	return NULL;
+	
+	bpt->write_node(naddr, btn);
+	bpt->close_node(btn);
+	return left_right_nodes;
 }
+
+#ifndef DISABLE_DELETE
 
 void bptree_delete(bptree* bpt, bptree_key key) {
 	leaf_delete(bpt, bpt->root, key, NULL);
@@ -294,17 +313,20 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 	return di;
 }
 
+#endif
+
 void* bptree_search(bptree* bpt, bptree_key key) {
 	return node_search(bpt, bpt->root, key).data;
 }
 
-bptree_child node_search(bptree* bpt, bptree_node* btn, bptree_key key) {
+bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key) {
+	bptree_node* btn = bpt->get_node(naddr);
 	bptree_child value = { NULL };
 
 	if(!btn->is_leaf) {
 		int i;
 		for(i =	0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++);
-		value = node_search(bpt, btn->children[i].node_p, key);
+		value = node_search(bpt, btn->children[i].addr, key);
 	} else {
 		int i;
 		for(i =	0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) != 0; i++);
@@ -313,26 +335,31 @@ bptree_child node_search(bptree* bpt, bptree_node* btn, bptree_key key) {
 		}
 	}
 
+	bpt->close_node(btn);
 	return value;
 }
 
-bptree_key min(bptree_node* btn) {
-	bptree_node* node = btn;
-	while(!node->is_leaf) {
-		node = node->children[0].node_p;
+bptree_key min(bptree* bpt, bptree_addr naddr) {
+	bptree_addr addr = naddr;
+	while(!bpt->is_leaf(addr)) {
+		addr = bpt->get_child_addr(addr, 0);
 	}
-	return node->keys[0];
+	return bpt->get_child_key(addr, 0);
 }
 
-bptree_key max(bptree_node* btn) {
-	bptree_node* node = btn;
-	while(!node->is_leaf) {
-		node = node->children[node->key_count].node_p;
+bptree_key max(bptree* bpt, bptree_addr naddr) {
+	bptree_addr addr = naddr;
+	int key_count = bpt->key_count(addr);
+
+	while(!bpt->is_leaf(addr)) {
+		addr = bpt->get_child_addr(addr, key_count);
 	}
-	return node->keys[node->key_count - 1];
+	return bpt->get_child_key(addr, key_count - 1);
 }
 
-void dump_keys_aux(bptree_node* btn, int depth) {
+void dump_keys_aux(bptree* bpt, bptree_addr naddr, int depth) {
+	bptree_node* btn = bpt->get_node(naddr);
+
 	printf("%*s", depth*4, "");
 	for(int i = 0; i < btn->key_count; i++) {
 		printf("%d:%s ", btn->keys[i], btn->is_leaf? btn->children[i + 1].data: "-");
@@ -342,26 +369,32 @@ void dump_keys_aux(bptree_node* btn, int depth) {
 	
 	if(!btn->is_leaf) {
 		for(int i = 0; i < btn->key_count + 1; i++) {
-			dump_keys_aux(btn->children[i].node_p, depth + 1);
+			dump_keys_aux(bpt, btn->children[i].addr, depth + 1);
 		}
 	}
+
+	bpt->close_node(btn);
 }
 
-void dump_keys(bptree_node* btn) {
-	dump_keys_aux(btn, 0);
+void dump_keys(bptree* bpt, bptree_addr naddr) {
+	dump_keys_aux(bpt, naddr, 0);
 }
 
-void dump_values(bptree* bt) {
-	bptree_node* node = bt->root;
-	while(!node->is_leaf) {
-		node = node->children[0].node_p;
+void dump_values(bptree* bpt) {
+	bptree_addr addr = bpt->root;
+	while(!bpt->is_leaf(addr)) {
+		addr = bpt->get_child_addr(addr, 0);
 	}
+	
+	bptree_node* node = bpt->get_node(addr);
 	
 	while(node != NULL) {
 		for(int i = 0; i < node->key_count; i++) {
 			printf("%s ", node->children[i + 1].data);
 		}
-		node = node->children[0].node_p;
+		bptree_addr next_addr = node->children[0].addr;
+		bpt->close_node(node);
+		node = bpt->get_node(next_addr);
 	}
 
 	printf("\n");
@@ -390,11 +423,4 @@ bptree_key key_array_insert(bptree* bpt, bptree_key* arr, bptree_key value, int 
 		*index = i;
 	}
 	return last;
-}
-
-bptree_node* create_leaf_node() {
-	bptree_node* btn = malloc(sizeof(bptree_node));
-	btn->key_count = 0;
-	btn->is_leaf = 1;
-	return btn;
 }
