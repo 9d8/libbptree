@@ -60,7 +60,7 @@ void insert_test(bptree* bt) {
 	printf("--------------------\n");
 	dump_keys(bt, bt->root);
 	printf("--------------------\n");
-	//dump_values(bt);
+	dump_values(bt);
 	printf("--------------------\n");
 	char* found = bptree_search(bt, ((bptree_key)628));
 	printf("%s's bizzare adventure\n", found);

@@ -49,6 +49,10 @@ bptree_addr create_leaf_node(bptree* bpt) {
 	fwrite(&is_leaf, sizeof(BPT_BOOL), 1, bpt->fp);
 	/* Write garbage data to file. Im not sure that this is a good idea. */
 	bptree_child garbage[ORDER];	
+	/* The pointer child for leaf nodes needs to be EOF by default in order for 
+	 * the linked list of leaf nodes to end. It cannot be NULL or 0 since that 
+	 * is an actual position in the file. */
+	garbage[0].addr.node_fpos = EOF;
 	fwrite(garbage, sizeof(bptree_key), MAX_KEYS, bpt->fp);
 	fwrite(garbage, sizeof(bptree_child), ORDER, bpt->fp);
 
@@ -56,14 +60,17 @@ bptree_addr create_leaf_node(bptree* bpt) {
 }
 
 bptree_node* fbpt_get_node(bptree* bpt, bptree_addr addr) {
-	bptree_node* btn = malloc(sizeof(bptree_node));
+	bptree_node* btn = NULL;
 	
-	fseek(bpt->fp, addr.node_fpos, SEEK_SET);
-	
-	fread(&btn->key_count, sizeof(KEY_COUNT), 1, bpt->fp);
-	fread(&btn->is_leaf, sizeof(BPT_BOOL), 1, bpt->fp);
-	fread(btn->keys, sizeof(bptree_key), MAX_KEYS, bpt->fp);
-	fread(btn->children, sizeof(bptree_child), btn->key_count + 1, bpt->fp);
+	if(addr.node_fpos != EOF) {
+		btn = malloc(sizeof(bptree_node));
+		fseek(bpt->fp, addr.node_fpos, SEEK_SET);
+		
+		fread(&btn->key_count, sizeof(KEY_COUNT), 1, bpt->fp);
+		fread(&btn->is_leaf, sizeof(BPT_BOOL), 1, bpt->fp);
+		fread(btn->keys, sizeof(bptree_key), MAX_KEYS, bpt->fp);
+		fread(btn->children, sizeof(bptree_child), btn->key_count + 1, bpt->fp);
+	}
 
 	return btn;
 }
