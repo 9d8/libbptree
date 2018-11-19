@@ -8,10 +8,14 @@ void string_test(bptree* bpt);
 
 int main(int argc, char** argv) {
 	bptree* bt = bptree_membpt_create();
-	string_test(bt);
+	FILE* fp = fopen("bptree.file", "w+b");
+	bptree* fbt = bptree_fbpt_create(fp);
+	//string_test(bt);
 	//test_run();
 	//delete_test(bt);
-	//insert_test(bt);
+	insert_test(bt);
+	insert_test(fbt);
+	
 	bptree_membpt_destroy(bt);
 	return 0;
 }
@@ -22,28 +26,43 @@ void insert_test(bptree* bt) {
 	char* test3 = "test3";
 	char* test4 = "test4";
 	char* jojo = "jojo";
-	bptree_insert(bt, ((bptree_key)1), test);
-	bptree_insert(bt, ((bptree_key)4), test2);
-	bptree_insert(bt, ((bptree_key)5), test3);
-	bptree_insert(bt, ((bptree_key)11), jojo);
-	bptree_insert(bt, ((bptree_key)2), test);
-	bptree_insert(bt, ((bptree_key)7), test4);
-	bptree_insert(bt, ((bptree_key)9), test4);
-	bptree_insert(bt, ((bptree_key)27), test4);
-	bptree_insert(bt, ((bptree_key)3), test4);
-	bptree_insert(bt, ((bptree_key)6), test4);
-	bptree_insert(bt, ((bptree_key)101), test3);
-//	bptree_insert(bt, ((bptree_key)600), test4);
-//	bptree_insert(bt, ((bptree_key)77), test2);
-//	bptree_insert(bt, ((bptree_key)32), test4);
-//	bptree_insert(bt, ((bptree_key)85), test4);
-//	bptree_insert(bt, ((bptree_key)99), test4);
+	
+	bptree_insert(bt, (bptree_key)26, test);
+	bptree_insert(bt, (bptree_key)900, test);
+	bptree_insert(bt, (bptree_key)775, test);
+	bptree_insert(bt, (bptree_key)999, test);
+	dump_keys(bt, bt->root);
+	bptree_insert(bt, (bptree_key)693, test);
+	dump_keys(bt, bt->root);
+	bptree_insert(bt, (bptree_key)974, test);
+	bptree_insert(bt, (bptree_key)891, test);
+	bptree_insert(bt, (bptree_key)745, test);
+	bptree_insert(bt, (bptree_key)165, test);
+	bptree_insert(bt, (bptree_key)628, jojo);
+	bptree_insert(bt, (bptree_key)684, test);
+	bptree_insert(bt, (bptree_key)57, test);
+	bptree_insert(bt, (bptree_key)168, test);
+	bptree_insert(bt, (bptree_key)267, test);
+	bptree_insert(bt, (bptree_key)6, test);
+	bptree_insert(bt, (bptree_key)167, test);
+	bptree_insert(bt, (bptree_key)104, test);
+	bptree_insert(bt, (bptree_key)722, test);
+	bptree_insert(bt, (bptree_key)602, test);
+	bptree_insert(bt, (bptree_key)846, test);
+	bptree_insert(bt, (bptree_key)736, test);
+	bptree_insert(bt, (bptree_key)543, test);
+	bptree_insert(bt, (bptree_key)991, test);
+	bptree_insert(bt, (bptree_key)87, test);
+	bptree_insert(bt, (bptree_key)742, test);
+	bptree_insert(bt, (bptree_key)60, test);
+	bptree_insert(bt, (bptree_key)556, test);
+	
 	printf("--------------------\n");
 	dump_keys(bt, bt->root);
 	printf("--------------------\n");
-	dump_values(bt);
+	//dump_values(bt);
 	printf("--------------------\n");
-	char* found = bptree_search(bt, ((bptree_key)11));
+	char* found = bptree_search(bt, ((bptree_key)628));
 	printf("%s's bizzare adventure\n", found);
 }
 

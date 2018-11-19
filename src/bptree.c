@@ -7,10 +7,15 @@
 #define SHIFT_FORWARD(arr, len) memmove(arr + 1, arr, len)
 #define SHIFT_BACK(arr, len) memmove(arr, arr + 1, len)
 
+#define FIND_KEY(bpt, btn, key, i) \
+	for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) != 0; i++)
+#define FIND_KEY_POS(bpt, btn, key, i) \
+	for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++)
+
 typedef struct {
 	bptree_key key;
-	bptree_child nodes[2];
-} key_children;
+	bptree_child node;
+} key_child;
 
 typedef struct {
 	int left;
@@ -18,8 +23,8 @@ typedef struct {
 } node_sibling;
 
 static void destroy_nodes(bptree_node* btn);
-static key_children* leaf_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value);
-static key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value);
+static key_child* leaf_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value);
+static key_child* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value);
 static DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib);
 static DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib);
 static bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key);
@@ -30,47 +35,54 @@ static bptree_key key_array_insert(bptree* bpt, bptree_key* arr, bptree_key valu
 
 void bptree_insert(bptree* bpt, bptree_key key, void* value) {
 	bptree_child bptree_value = { .data = value };
-	key_children* child_node_data;
-	if((child_node_data = leaf_insert(bpt, bpt->root, key, bptree_value)) != NULL) {
-		bpt->root = bpt->create_node();
-		bptree_node* root_node = bpt->get_node(bpt->root);
-		
-		root_node->children[0] = child_node_data->nodes[0]; 
-		root_node->is_leaf = 0;
-		node_insert(bpt, bpt->root, child_node_data->key, child_node_data->nodes[1]);
+	key_child* child_node_data;
 	
-		bpt->write_node(bpt->root, root_node);
-		bpt->close_node(root_node);
+	bptree_addr root_addr = bpt->root;
+	bptree_node* root_node = BPTN_GET_NODE(bpt, bpt->root);
+	
+	if((child_node_data = leaf_insert(bpt, root_node, key, bptree_value)) != NULL) {
+		bpt->root = BPTN_CREATE_NODE(bpt);
+		bptree_node* new_root_node = BPTN_GET_NODE(bpt, bpt->root);
+		
+		new_root_node->children[0].addr = root_addr; 
+		new_root_node->is_leaf = 0;
+		node_insert(bpt, new_root_node, child_node_data->key, child_node_data->node);
+	
+		BPTN_SAVE_AND_CLOSE_NODE(bpt, bpt->root, new_root_node);
 		
 		free(child_node_data);
 	}
+	
+	BPTN_SAVE_AND_CLOSE_NODE(bpt, root_addr, root_node);
 }
 
-key_children* leaf_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value) {
-	key_children* insert = NULL;
-	bptree_node* btn = bpt->get_node(naddr);
+key_child* leaf_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value) {
+	key_child* insert = NULL;
 
 	if(!btn->is_leaf) {
 		int i;
+		//FIND_KEY_POS(bpt, btn, key, i);
 		for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) >= 0; i++);
-		if((insert = leaf_insert(bpt, btn->children[i].addr, key, value)) != NULL) {
-			bptree_child right = insert->nodes[1];
-			key_children* insert_buff = node_insert(bpt, naddr, insert->key, right);
+		bptree_addr child_addr = btn->children[i].addr;
+		bptree_node* child_node = BPTN_GET_NODE(bpt, child_addr);
+		if((insert = leaf_insert(bpt, child_node, key, value)) != NULL) {
+			bptree_child right = insert->node;
+			key_child* insert_buff = node_insert(bpt, btn, insert->key, right);
 			free(insert);
 			insert = insert_buff;
 		}
+		BPTN_SAVE_AND_CLOSE_NODE(bpt, child_addr, child_node);
 	} else {
-		insert = node_insert(bpt, naddr, key, value);
+		insert = node_insert(bpt, btn, key, value);
 	}
 
-	bpt->close_node(btn);
 	return insert;
 }
 
-key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree_child value) {
+key_child* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_child value) {
 	int insert_index;
-	key_children* left_right_nodes = NULL;
-	bptree_node* btn = bpt->get_node(naddr);
+	key_child* right_node_info = NULL;
+	//bptree_node* btn = BPTN_GET_NODE(bpt, naddr);
 
 	if(btn->key_count < MAX_KEYS) {
 		key_array_insert(bpt, btn->keys, key, btn->key_count, sizeof(bptree_key)*MAX_KEYS, &insert_index);
@@ -94,8 +106,8 @@ key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree
 		//turning btn into left node
 		bptree_node* left_node = btn;
 		
-		bptree_addr right_addr = bpt->create_node();
-		bptree_node* right_node = bpt->get_node(right_addr);
+		bptree_addr right_addr = BPTN_CREATE_NODE(bpt);
+		bptree_node* right_node = BPTN_GET_NODE(bpt, right_addr);
 		bptree_key right_key = btn->keys[MAX_KEYS - MIN_KEYS];
 
 		//if splitting non-leaf, dont keep middle key and set is_leaf to false
@@ -119,18 +131,14 @@ key_children* node_insert(bptree* bpt, bptree_addr naddr, bptree_key key, bptree
 		}
 		left_node->key_count = MAX_KEYS - MIN_KEYS;
 	
-		bpt->write_node(right_addr, right_node);
-		bpt->close_node(right_node);
+		BPTN_SAVE_AND_CLOSE_NODE(bpt, right_addr, right_node);
 
-		left_right_nodes = malloc(sizeof(key_children));
-		left_right_nodes->key = right_key;
-		left_right_nodes->nodes[0].addr = naddr;
-		left_right_nodes->nodes[1].addr = right_addr;
+		right_node_info = malloc(sizeof(key_child));
+		right_node_info->key = right_key;
+		right_node_info->node.addr = right_addr;
 	}
 	
-	bpt->write_node(naddr, btn);
-	bpt->close_node(btn);
-	return left_right_nodes;
+	return right_node_info;
 }
 
 #ifndef DISABLE_DELETE
@@ -320,7 +328,7 @@ void* bptree_search(bptree* bpt, bptree_key key) {
 }
 
 bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key) {
-	bptree_node* btn = bpt->get_node(naddr);
+	bptree_node* btn = BPTN_GET_NODE(bpt, naddr);
 	bptree_child value = { NULL };
 
 	if(!btn->is_leaf) {
@@ -341,24 +349,24 @@ bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key) {
 
 bptree_key min(bptree* bpt, bptree_addr naddr) {
 	bptree_addr addr = naddr;
-	while(!bpt->is_leaf(addr)) {
-		addr = bpt->get_child_addr(addr, 0);
+	while(!BPTN_IS_LEAF(bpt, addr)) {
+		addr = BPTN_GET_CHILD_ADDR(bpt, addr, 0);
 	}
-	return bpt->get_child_key(addr, 0);
+	return BPTN_GET_CHILD_KEY(bpt, addr, 0);
 }
 
 bptree_key max(bptree* bpt, bptree_addr naddr) {
 	bptree_addr addr = naddr;
-	int key_count = bpt->key_count(addr);
+	int key_count = BPTN_KEY_COUNT(bpt, addr);
 
-	while(!bpt->is_leaf(addr)) {
-		addr = bpt->get_child_addr(addr, key_count);
+	while(!BPTN_IS_LEAF(bpt, addr)) {
+		addr = BPTN_GET_CHILD_ADDR(bpt, addr, key_count);
 	}
-	return bpt->get_child_key(addr, key_count - 1);
+	return BPTN_GET_CHILD_KEY(bpt, addr, key_count - 1);
 }
 
 void dump_keys_aux(bptree* bpt, bptree_addr naddr, int depth) {
-	bptree_node* btn = bpt->get_node(naddr);
+	bptree_node* btn = BPTN_GET_NODE(bpt, naddr);
 
 	printf("%*s", depth*4, "");
 	for(int i = 0; i < btn->key_count; i++) {
@@ -382,19 +390,19 @@ void dump_keys(bptree* bpt, bptree_addr naddr) {
 
 void dump_values(bptree* bpt) {
 	bptree_addr addr = bpt->root;
-	while(!bpt->is_leaf(addr)) {
-		addr = bpt->get_child_addr(addr, 0);
+	while(!BPTN_IS_LEAF(bpt, addr)) {
+		addr = BPTN_GET_CHILD_ADDR(bpt, addr, 0);
 	}
 	
-	bptree_node* node = bpt->get_node(addr);
+	bptree_node* node = BPTN_GET_NODE(bpt, addr);
 	
 	while(node != NULL) {
 		for(int i = 0; i < node->key_count; i++) {
 			printf("%s ", node->children[i + 1].data);
 		}
 		bptree_addr next_addr = node->children[0].addr;
-		bpt->close_node(node);
-		node = bpt->get_node(next_addr);
+		BPTN_CLOSE_NODE(bpt, node);
+		node = BPTN_GET_NODE(bpt, next_addr);
 	}
 
 	printf("\n");

@@ -3,6 +3,7 @@
 
 #include "bptree_struct.h"
 #include "membpt.h"
+#include "filebpt.h"
 #include "keycmp.h"
 
 #define DISABLE_DELETE

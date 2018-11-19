@@ -4,12 +4,12 @@
 
 static void destroy_nodes(bptree_node* btn);
 static bptree_addr create_leaf_node();
-static bptree_node* membpt_get_node(bptree_addr naddr);
-static int membpt_key_count(bptree_addr addr);
-static int membpt_is_leaf(bptree_addr addr);
-static bptree_key membpt_get_child_key(bptree_addr addr, int index);
-static bptree_addr membpt_get_child_addr(bptree_addr addr, int index);
-static void membpt_write_node(bptree_addr addr, bptree_node* btn);
+static bptree_node* membpt_get_node(bptree* bpt, bptree_addr naddr);
+static KEY_COUNT membpt_key_count(bptree* bpt, bptree_addr addr);
+static BPT_BOOL membpt_is_leaf(bptree* bpt, bptree_addr addr);
+static bptree_key membpt_get_child_key(bptree* bpt, bptree_addr addr, int index);
+static bptree_addr membpt_get_child_addr(bptree* bpt, bptree_addr addr, int index);
+static void membpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn);
 static void membpt_close_node(bptree_node* btn);
 
 
@@ -52,28 +52,28 @@ bptree_addr create_leaf_node() {
 	return (bptree_addr)btn;
 }
 	
-bptree_node* membpt_get_node(bptree_addr addr) {
+bptree_node* membpt_get_node(bptree* bpt, bptree_addr addr) {
 	return addr.node_p;
 }
 	
-int membpt_key_count(bptree_addr addr) {
+KEY_COUNT membpt_key_count(bptree* bpt, bptree_addr addr) {
 	return addr.node_p->key_count;
 }
 
-int membpt_is_leaf(bptree_addr addr) {
+BPT_BOOL membpt_is_leaf(bptree* bpt, bptree_addr addr) {
 	return addr.node_p->is_leaf;
 }
 
-bptree_key membpt_get_child_key(bptree_addr addr, int index) {
+bptree_key membpt_get_child_key(bptree* bpt, bptree_addr addr, int index) {
 	return addr.node_p->keys[index];
 }
 
-bptree_addr membpt_get_child_addr(bptree_addr addr, int index) {
+bptree_addr membpt_get_child_addr(bptree* bpt, bptree_addr addr, int index) {
 	return addr.node_p->children[index].addr;
 }
 
 /* For a memory b+ tree, these functions dont actually do anything. */
-void membpt_write_node(bptree_addr addr, bptree_node* btn) {
+void membpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn) {
 
 }
 

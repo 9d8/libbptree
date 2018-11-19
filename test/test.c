@@ -13,14 +13,15 @@ void test_run() {
 	srand(time(NULL));
 	int* kp = key_pool_create(1000);
 
-	for(int i = 0; i < 10000 && !test_bptree(kp); i++);
+	for(int i = 0; i < 1 && !test_bptree(kp); i++);
 
 	key_pool_destroy(kp);
 }
 
 int test_bptree(int* key_pool) {
 	printf("Creating a new bptree to test.\n");
-	bptree* bt = bptree_membpt_create();
+	FILE* fp = fopen("test.bptree", "w+b");
+	bptree* bt = bptree_fbpt_create(fp);
 
 	int return_code = 0;
 	char* value = "test";
@@ -29,7 +30,7 @@ int test_bptree(int* key_pool) {
 	printf("Attempting to insert %d random keys.\n", total_keys);
 	key_pool_shuffle(key_pool, 1000);
 	for(int i = 0; i < total_keys; i++) {
-		printf("bptree_insert(bt, %d, test);\n", key_pool[i]);
+		printf("bptree_insert(bt, (bptree_key)%d, test);\n", key_pool[i]);
 		bptree_insert(bt, (bptree_key)key_pool[i], value);
 	}
 	printf("\n");
@@ -61,7 +62,8 @@ int test_bptree(int* key_pool) {
 //		
 //	dump_keys(bt->root);
 	
-	bptree_membpt_destroy(bt);
+	//bptree_membpt_destroy(bt);
+	fclose(fp);
 	return return_code;
 }
 
