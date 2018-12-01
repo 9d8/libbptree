@@ -8,13 +8,13 @@ void string_test(bptree* bpt);
 
 int main(int argc, char** argv) {
 	bptree* bt = bptree_membpt_create();
-	FILE* fp = fopen("bptree.file", "w+b");
-	bptree* fbt = bptree_fbpt_create(fp);
+	//FILE* fp = fopen("bptree.file", "w+b");
+	//bptree* fbt = bptree_fbpt_create(fp);
 	//string_test(bt);
-	//test_run();
+	test_run();
 	//delete_test(bt);
-	insert_test(bt);
-	insert_test(fbt);
+	//insert_test(bt);
+	//insert_test(fbt);
 	
 	bptree_membpt_destroy(bt);
 	return 0;
@@ -124,17 +124,17 @@ void delete_test(bptree* bt) {
 	bptree_insert(bt, ((bptree_key)375), test);
 
 	printf("--------------------\n");
-	dump_keys(bt->root);
+	dump_keys(bt, bt->root);
 	printf("--------------------\n");
 	
 	bptree_delete(bt, ((bptree_key)965));
 	bptree_delete(bt, ((bptree_key)378));
 
-	dump_keys(bt->root);
+	dump_keys(bt, bt->root);
 
 	bptree_delete(bt, ((bptree_key)952));
 
-	dump_keys(bt->root);
+	dump_keys(bt, bt->root);
 }
 
 #endif
