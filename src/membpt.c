@@ -9,11 +9,12 @@ static KEY_COUNT membpt_key_count(bptree* bpt, bptree_addr addr);
 static BPT_BOOL membpt_is_leaf(bptree* bpt, bptree_addr addr);
 static bptree_key membpt_get_child_key(bptree* bpt, bptree_addr addr, int index);
 static bptree_addr membpt_get_child_addr(bptree* bpt, bptree_addr addr, int index);
+static void membpt_delete_node(bptree* bpt, bptree_addr addr);
 static void membpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn);
 static void membpt_close_node(bptree_node* btn);
 
 
-bptree* bptree_membpt_create() {
+bptree* bptree_membpt_create(void) {
 	bptree* bt = malloc(sizeof(bptree));	
 	
 	bt->key_compare = bptree_keycmp_int;
@@ -23,6 +24,7 @@ bptree* bptree_membpt_create() {
 	bt->is_leaf = membpt_is_leaf;
 	bt->get_child_key = membpt_get_child_key;
 	bt->get_child_addr = membpt_get_child_addr;
+	bt->delete_node = membpt_delete_node;
 	bt->write_node = membpt_write_node;
 	bt->close_node = membpt_close_node;
 
@@ -72,7 +74,12 @@ bptree_addr membpt_get_child_addr(bptree* bpt, bptree_addr addr, int index) {
 	return addr.node_p->children[index].addr;
 }
 
-/* For a memory b+ tree, these functions dont actually do anything. */
+void membpt_delete_node(bptree* bpt, bptree_addr addr) {
+	free(addr.node_p);
+}
+
+/* For a memory b+ tree, all nodes are directly modified in memory. Thus, these
+ * functions dont actually need to do anything. */
 void membpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn) {
 
 }

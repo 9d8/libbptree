@@ -15,6 +15,7 @@ static KEY_COUNT fbpt_key_count(bptree* bpt, bptree_addr addr);
 static BPT_BOOL fbpt_is_leaf(bptree* bpt, bptree_addr addr);
 static bptree_key fbpt_get_child_key(bptree* bpt, bptree_addr addr, int index);
 static bptree_addr fbpt_get_child_addr(bptree* bpt, bptree_addr addr, int index);
+static void fbpt_delete_node(bptree* bpt, bptree_addr btn);
 static void fbpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn);
 static void fbpt_close_node(bptree_node* btn);
 
@@ -28,6 +29,7 @@ bptree* bptree_fbpt_create(FILE* datafile) {
 	fbpt->is_leaf = fbpt_is_leaf;
 	fbpt->get_child_key = fbpt_get_child_key;
 	fbpt->get_child_addr = fbpt_get_child_addr;
+	fbpt->delete_node = fbpt_delete_node;
 	fbpt->write_node = fbpt_write_node;
 	fbpt->close_node = fbpt_close_node;
 	
@@ -101,6 +103,10 @@ bptree_addr fbpt_get_child_addr(bptree* bpt, bptree_addr addr, int index) {
 	fseek(bpt->fp, addr.node_fpos + CHILDREN_OFFSET + index*sizeof(bptree_addr), SEEK_SET);
 	fread(&child_addr, sizeof(bptree_addr), 1, bpt->fp);
 	return child_addr;
+}
+
+void fbpt_delete_node(bptree* bpt, bptree_addr btn) {
+
 }
 
 void fbpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn) {

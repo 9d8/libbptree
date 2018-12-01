@@ -3,7 +3,7 @@
 
 #include "bptree_struct.h"
 
-bptree* bptree_membpt_create();
+bptree* bptree_membpt_create(void);
 void bptree_membpt_destroy(bptree* bpt);
 
 #endif

@@ -3,7 +3,15 @@
 #include <string.h>
 #include <stdio.h>
 
-#define DELETE_CODE int
+#define DELETE_CODE unsigned int
+
+#define DC_IS_ERROR(dc) (dc & 0x4)
+/* This macro is only needed to get values of the delete code when the sib 
+ * delete bit may be set (only after a merge delete). In other cases, dc can be
+ * read directly after checking for an error. */
+#define DC_GET(dc) (dc & 0x3)
+#define DC_DEL_SIB(dc) (dc & 8)
+
 #define SHIFT_FORWARD(arr, len) memmove(arr + 1, arr, len)
 #define SHIFT_BACK(arr, len) memmove(arr, arr + 1, len)
 
@@ -19,6 +27,7 @@ typedef struct {
 
 typedef struct {
 	int left;
+	bptree_addr naddr;
 	bptree_node* node;
 } node_sibling;
 
@@ -144,12 +153,18 @@ key_child* node_insert(bptree* bpt, bptree_node* btn, bptree_key key, bptree_chi
 #ifndef DISABLE_DELETE
 
 void bptree_delete(bptree* bpt, bptree_key key) {
-	leaf_delete(bpt, bpt->root, key, NULL);
-	if(bpt->root->key_count == 0 && !bpt->root->is_leaf) {
-		bptree_node* new_root = bpt->root->children[0].node_p;
-		free(bpt->root);
+	bptree_node* root_node = BPTN_GET_NODE(bpt, bpt->root);
+
+	leaf_delete(bpt, root_node, key, NULL);
+	if(root_node->key_count == 0 && !root_node->is_leaf) {
+		bptree_addr new_root = root_node->children[0].addr;
+		BPTN_DELETE_NODE(bpt, bpt->root);
 		bpt->root = new_root;
+	} else {
+		BPTN_WRITE_NODE(bpt, bpt->root, root_node);
 	}
+
+	BPTN_CLOSE_NODE(bpt, root_node);
 }
 
 DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib) {
@@ -162,35 +177,65 @@ DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 		node_sibling sibdata = {1,NULL};
 		if(i == 0) {
 			sibdata.left = 0;
-			sibdata.node = btn->children[i+1].node_p;	
+			sibdata.naddr = btn->children[i+1].addr;
+			sibdata.node = BPTN_GET_NODE(bpt, sibdata.naddr);	
 		} else if(i == btn->key_count) {
-			sibdata.node = btn->children[i-1].node_p;	
+			sibdata.naddr = btn->children[i-1].addr;
+			sibdata.node = BPTN_GET_NODE(bpt, sibdata.naddr);
 		} else {
-			bptree_node* left_sib = btn->children[i-1].node_p;
-			bptree_node* right_sib = btn->children[i+1].node_p;
-			if(left_sib->key_count >= right_sib->key_count || (left_sib->key_count <= 2 && right_sib->key_count <= 2)) {
-				sibdata.node = left_sib;
+			bptree_addr left_sib = btn->children[i-1].addr;
+			bptree_addr right_sib = btn->children[i+1].addr;
+			int left_kc = BPTN_KEY_COUNT(bpt, left_sib);
+			int right_kc = BPTN_KEY_COUNT(bpt, right_sib);
+
+			if(left_kc >= right_kc || (left_kc <= 2 && right_kc <= 2)) {
+				sibdata.naddr = left_sib;
+				sibdata.node = BPTN_GET_NODE(bpt, left_sib);
 			} else {
 				sibdata.left = 0;
-				sibdata.node = right_sib;
+				sibdata.naddr = right_sib;
+				sibdata.node = BPTN_GET_NODE(bpt, right_sib);
 			}
 		}
 
-		bptree_node* child = btn->children[i].node_p;
+		bptree_addr child_addr = btn->children[i].addr;
+		bptree_node* child = BPTN_GET_NODE(bpt, child_addr);
 		di = leaf_delete(bpt, child, key, &sibdata);
 
-		if(di == -1) {
+		if(DC_IS_ERROR(di)) {
+			BPTN_CLOSE_NODE(bpt, child);
+			BPTN_CLOSE_NODE(bpt, sibdata.node);
 			return di;
-		} else if(di == 1 && i != 0) {
-			di = 0;
+		} else if(di == 0 || di == 1) {
+			if(i != 0) {
+				di = 0;
+			}
+			BPTN_SAVE_AND_CLOSE_NODE(bpt, child_addr, child);
+			BPTN_CLOSE_NODE(bpt, sibdata.node);
 		} else if(di == 2) {
-			// (!sibdata.left) == (i == 0)
+			/* The sibling needs to be written early so that the call to min 
+			 * below works as intended. */
+			BPTN_SAVE_AND_CLOSE_NODE(bpt, sibdata.naddr, sibdata.node);
+			/* (!sibdata.left) is logically equivilent to (i == 0) */
 			if(!sibdata.left) {
 				child->keys[child->key_count-1] = btn->keys[i];
-				btn->keys[i] = min(sibdata.node);
+				btn->keys[i] = min(bpt, sibdata.naddr);
 			}
+			BPTN_SAVE_AND_CLOSE_NODE(bpt, child_addr, child);
 			di = 0;
-		} else if(di == 3) {
+		} else if(DC_GET(di) == 3) {
+			/* After a merge, one of these nodes is unlinked and needs to be
+			 * freed. */
+			if(DC_DEL_SIB(di)) {
+				BPTN_DELETE_NODE(bpt, sibdata.naddr);
+				BPTN_CLOSE_NODE(bpt, sibdata.node);
+				BPTN_SAVE_AND_CLOSE_NODE(bpt, child_addr, child);
+			} else {
+				BPTN_DELETE_NODE(bpt, child_addr);
+				BPTN_CLOSE_NODE(bpt, child);
+				BPTN_SAVE_AND_CLOSE_NODE(bpt, sibdata.naddr, sibdata.node);
+			}
+			
 			if(sibdata.left) {
 				di = node_delete(bpt, btn, btn->keys[i-1], sib);
 				if(di == 2 || i > btn->key_count) {
@@ -199,37 +244,36 @@ DELETE_CODE leaf_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			} else {
 				di = node_delete(bpt, btn, btn->keys[i], sib);
 			}
-			
-			// On merge, child may not exist anymore. Thus do not use past this point
 		}
+			
+		/* The nodes for child and sibling will not ever exist beyond this 
+		 * point. So don't use them. */
 
 		if(i != 0) {
-			btn->keys[i-1] = min(btn->children[i].node_p);
+			btn->keys[i-1] = min(bpt, btn->children[i].addr);
 		} else if(i == 0) {
-			btn->keys[0] = min(btn->children[1].node_p);
-		}	
+			btn->keys[0] = min(bpt, btn->children[1].addr);
+		}
 	} else {
-		//perhaps check if key does not exist and throw error
 		di = node_delete(bpt, btn, key, sib);
 	}
 
 	return di;
 }
 
-//return codes:
-// -1 - Key not found
-//	0 - Do nothing
-//	1 - Normal delete + need to overwrite left parent key
-//	2 - Steal occured
-//	3 - Merge occured
-//function assumes key exists. If it does not, bad things will happen.
+/* Return Codes:
+ *	0 - Do nothing
+ *	1 - Normal delete + need to overwrite left parent key
+ *	2 - Steal occured
+ *	3 - Merge occured */
 DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibling* sib) {
 	DELETE_CODE di = 0;
 	int i;
 	for(i = 0; i < btn->key_count && bpt->key_compare(key, btn->keys[i]) != 0; i++);
 
 	if(i == btn->key_count) {
-		di = -1;	
+		/* When DELETE_CODE_IS_ERROR is called on di, it will return true. */
+		di = 4;
 	} else if(btn->key_count >= 3 || sib == NULL) {
 		SHIFT_BACK(btn->keys + i, sizeof(bptree_key)*(btn->key_count - i - 1));
 		SHIFT_BACK(btn->children + i + 1, sizeof(bptree_child)*(btn->key_count - i - 1));
@@ -288,6 +332,7 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 		if(!sib->left) {
 			merged = btn;
 			dead = sib->node;
+			di |= 8;
 		}
 
 		//could be 2 or 1...
@@ -300,8 +345,8 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			}
 		} else if(sib->left) {
 			SHIFT_FORWARD(btn->children, sizeof(bptree_child)*(i + 1)); 
-			dead->keys[0] = min(dead->children[1].node_p);
-			dead->keys[1] = min(dead->children[2].node_p);
+			dead->keys[0] = min(bpt, dead->children[1].addr);
+			dead->keys[1] = min(bpt, dead->children[2].addr);
 			node_insert(bpt, merged, dead->keys[0], dead->children[1]);
 			node_insert(bpt, merged, dead->keys[1], dead->children[2]);
 		} else {
@@ -309,13 +354,12 @@ DELETE_CODE node_delete(bptree* bpt, bptree_node* btn, bptree_key key, node_sibl
 			
 			merged->children[merged->key_count] = dead->children[0];
 			
-			merged->keys[merged->key_count - 1] = min(dead->children[0].node_p);
+			merged->keys[merged->key_count - 1] = min(bpt, dead->children[0].addr);
 			node_insert(bpt, merged, dead->keys[0], dead->children[1]);
 			node_insert(bpt, merged, dead->keys[1], dead->children[2]);
 		}	
 
-		free(dead);
-		di = 3;
+		di |= 3;
 	}
 
 	return di;

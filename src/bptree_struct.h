@@ -16,6 +16,7 @@
 #define BPTN_IS_LEAF(bpt, addr) bpt->is_leaf(bpt, addr)
 #define BPTN_GET_CHILD_KEY(bpt, addr, index) bpt->get_child_key(bpt, addr, index)
 #define BPTN_GET_CHILD_ADDR(bpt, addr, index) bpt->get_child_addr(bpt, addr, index)
+#define BPTN_DELETE_NODE(bpt, addr) bpt->delete_node(bpt, addr)
 #define BPTN_WRITE_NODE(bpt, addr, btn) bpt->write_node(bpt, addr, btn)
 #define BPTN_CLOSE_NODE(bpt, btn) bpt->close_node(btn)
 #define BPTN_SAVE_AND_CLOSE_NODE(bpt, addr, btn) BPTN_WRITE_NODE(bpt, addr, btn); \
@@ -47,6 +48,8 @@ struct bptree {
 	BPT_BOOL (*is_leaf)(bptree* bpt, bptree_addr addr);
 	bptree_key (*get_child_key)(bptree* bpt, bptree_addr addr, int index);
 	bptree_addr (*get_child_addr)(bptree* bpt, bptree_addr addr, int index);
+
+	void (*delete_node)(bptree* bpt, bptree_addr addr);
 	
 	void (*write_node)(bptree* bpt, bptree_addr addr, bptree_node* btn);
 	void (*close_node)(bptree_node* btn);
