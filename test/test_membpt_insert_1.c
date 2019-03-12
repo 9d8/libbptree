@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include "bptree.h"
-#include "util/valid.h"
+#include "util/output.h"
 
 void insert_test(bptree* bt);
 
