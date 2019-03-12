@@ -1,6 +1,5 @@
 CC=gcc
 TARGET=libbptree.so
-TESTTARGET=bptree_test
 
 #Directories
 BUILDDIR=build
@@ -8,50 +7,43 @@ INCLUDEDIR=src
 SRCDIR=src
 TESTDIR=test
 
-CFLAGS=
+CFLAGS=-ggdb
 LIB=
 
 ############################################
 
 OBJECTS:=$(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
-TESTOBJECTS:=$(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(TESTDIR)/*.c))
 INCLUDE=$(patsubst %,-I%,$(INCLUDEDIR))
 
-all: $(TARGET)
+all: $(TARGET) build-tests
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(INCLUDEDIR)/%.h
 	$(CC) $(CFLAGS) -c -fpic -o $@ $< $(INCLUDE)
 
-$(BUILDDIR)/%.o: $(TESTDIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDE)
-
 # Make build directory when trying to create an object file.
-$(OBJECTS) $(TESTOBJECTS): | $(BUILDDIR) 
+$(OBJECTS): | $(BUILDDIR) 
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -shared -o $(BUILDDIR)/$@ $^ $(INCLUDE) $(LIB)
 
-$(TESTTARGET): $(TARGET) $(TESTOBJECTS)
-	$(CC) $(CFLAGS) -o $(BUILDDIR)/$@ $(TESTOBJECTS) $(BUILDDIR)/$(TARGET) $(INCLUDE) $(LIB)
-
 $(BUILDDIR):
 	mkdir $(BUILDDIR)
 
-.PHONY: clean test force debug install uninstall
+.PHONY: clean build-tests run-tests install uninstall
 clean:
-	-rm $(BUILDDIR)/$(TARGET) $(BUILDDIR)/$(TESTTARGET) $(OBJECTS) $(TESTOBJECTS)
+	@make clean -C $(TESTDIR)
+	-$(RM) $(BUILDDIR)/$(TARGET) $(OBJECTS)
 
-test: $(TESTTARGET)
+build-tests: $(TARGET)
+	@make -C $(TESTDIR)
 
-force: clean $(TARGET)
-
-debug: CFLAGS:=$(CFLAGS)-ggdb
-debug: $(TARGET)
+run-tests: build-tests
+	@$(TESTDIR)/run_tests.sh
 
 install: $(TARGET)
 	cp $(BUILDDIR)/$(TARGET) /usr/lib/
 	cp $(INCLUDEDIR)/bptree.h /usr/include/
 
 uninstall:
-	rm /usr/lib/$(TARGET)
-	rm /usr/include/bptree.h
+	$(RM) /usr/lib/$(TARGET)
+	$(RM) /u1sr/include/bptree.h

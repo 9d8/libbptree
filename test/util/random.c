@@ -69,7 +69,19 @@ int test_bptree(int* key_pool) {
 		
 	dump_keys(bt, bt->root);
 	
-	bptree_membpt_destroy(bt);
+	//bptree_membpt_destroy(bt);
+	return return_code;
+}
+
+int test_tree(bptree* bt, int* keys, int kc) {
+	int return_code = 0;
+
+	for(int i = 0; i < kc; i++) {
+		if(bptree_search(bt, (bptree_key)keys[i]) == NULL) {
+			return_code = 1;
+		}
+	}
+
 	return return_code;
 }
 
