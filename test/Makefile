@@ -1,21 +1,22 @@
-CC=gcc
-CFLAGS=-ggdb -I../src -MMD
+include ../global.mk
+BASEDIR=../
 
-LIBBPT=../build/libbptree.so
+CFLAGS+=-I$(INCLUDEDIR) -MMD
 
-############################################
+LIBBPT=$(BUILDDIR)/$(TARGET)
 
-TESTSRC=$(wildcard test_*.c)
+UTILOBJ=$(patsubst %.c,%.o,$(wildcard util/*.c))
+TESTSRC=$(wildcard *.c)
 TESTS=$(patsubst %.c,%,$(TESTSRC))
 
 all: $(TESTS)
 
-$(TESTS): %: %.o $(LIBBPT)
-	$(CC) $(CFLAGS) -o $@ $< $(LIBBPT)
+$(TESTS): %: %.o $(UTILOBJ) $(LIBBPT)
+	$(CC) $(CFLAGS) -o $@ $^
 
 .PHONY: clean force
 clean:
-	-$(RM) $(TESTS) *.o *.d
+	@-$(RM) $(TESTS) *.o *.d util/*.o util/*.d cache/*
 
 force:
 	touch *.c

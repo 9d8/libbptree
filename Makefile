@@ -1,19 +1,7 @@
-CC=gcc
-TARGET=libbptree.so
-
-#Directories
-BUILDDIR=build
-INCLUDEDIR=src
-SRCDIR=src
-TESTDIR=test
-
-CFLAGS=-ggdb
-LIB=
-
-############################################
+include global.mk
 
 OBJECTS:=$(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
-INCLUDE=$(patsubst %,-I%,$(INCLUDEDIR))
+INCLUDE:=$(patsubst %,-I%,$(INCLUDEDIR))
 
 all: $(TARGET) build-tests
 
@@ -32,7 +20,7 @@ $(BUILDDIR):
 .PHONY: clean build-tests run-tests install uninstall
 clean:
 	@make clean -C $(TESTDIR)
-	-$(RM) $(BUILDDIR)/$(TARGET) $(OBJECTS)
+	@-$(RM) $(BUILDDIR)/$(TARGET) $(OBJECTS)
 
 build-tests: $(TARGET)
 	@make -C $(TESTDIR)
