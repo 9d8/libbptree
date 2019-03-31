@@ -8,9 +8,13 @@
 void insert_test(bptree* bt);
 
 int main(int argc, char** argv) {
-	bptree* bt = bptree_membpt_create();
+	FILE* fp = fopen("cache/fbpt_insert_1.bpt", "w+b");
+
+	bptree* bt = bptree_fbpt_create(fp);
 	insert_test(bt);
-	bptree_membpt_destroy(bt);
+	bptree_fbpt_destroy(bt);
+
+	fclose(fp);
 	return 0;
 }
 

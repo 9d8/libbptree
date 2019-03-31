@@ -1,4 +1,6 @@
 #include "output.h"
+#include <stdlib.h>
+#include "bptree.h"
 
 static void dump_keys_aux(bptree* bpt, bptree_addr naddr, int depth);
 
@@ -26,21 +28,13 @@ void dump_keys(bptree* bpt, bptree_addr naddr) {
 }
 
 void dump_values(bptree* bpt) {
-	bptree_addr addr = bpt->root;
-	while(!BPTN_IS_LEAF(bpt, addr)) {
-		addr = BPTN_GET_CHILD_ADDR(bpt, addr, 0);
-	}
+	char** data;
+	int total_data = bptree_get_values(bpt, (void***) &data);
 	
-	bptree_node* node = BPTN_GET_NODE(bpt, addr);
-	
-	while(node != NULL) {
-		for(int i = 0; i < node->key_count; i++) {
-			printf("%s ", node->children[i + 1].data);
-		}
-		bptree_addr next_addr = node->children[0].addr;
-		BPTN_CLOSE_NODE(bpt, node);
-		node = BPTN_GET_NODE(bpt, next_addr);
+	for(int i = 0; i < total_data; i++) {
+		printf("%s ", data[i]);
 	}
 
 	printf("\n");
+	free(data);
 }
