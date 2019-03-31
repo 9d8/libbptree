@@ -390,6 +390,64 @@ bptree_child node_search(bptree* bpt, bptree_addr naddr, bptree_key key) {
 	return value;
 }
 
+int bptree_get_keys(bptree* bpt, bptree_key** keys) {
+	bptree_addr addr = bpt->root;
+	int max_keys = MAX_KEYS;
+	while(!BPTN_IS_LEAF(bpt, addr)) {
+		addr = BPTN_GET_CHILD_ADDR(bpt, addr, 0);
+		max_keys*= MAX_KEYS;
+	}
+	
+	bptree_node* node = BPTN_GET_NODE(bpt, addr);
+	/* Since we have no way of knowing the size of our tree, we have to make an
+	 * array large enough to hold the maximum possible number of keys. Later we 
+	 * can resize the array to use less memory. */
+	*keys = malloc(sizeof(bptree_key) * max_keys);
+	int total_key_count = 0;
+	
+	while(node != NULL) {
+		for(int i = 0; i < node->key_count; i++) {
+			(*keys)[total_key_count + i] = node->keys[i];
+		}
+		total_key_count += node->key_count;
+		bptree_addr next_addr = node->children[0].addr;
+		BPTN_CLOSE_NODE(bpt, node);
+		node = BPTN_GET_NODE(bpt, next_addr);
+	}
+
+	*keys = realloc(*keys, sizeof(bptree_key) * total_key_count);
+	return total_key_count;
+}
+
+int bptree_get_values(bptree* bpt, void*** values) {
+	bptree_addr addr = bpt->root;
+	int max_children = 1;
+	while(!BPTN_IS_LEAF(bpt, addr)) {
+		addr = BPTN_GET_CHILD_ADDR(bpt, addr, 0);
+		max_children*= MAX_KEYS;
+	}
+	
+	bptree_node* node = BPTN_GET_NODE(bpt, addr);
+	/* Since we have no way of knowing the size of our tree, we have to make an
+	 * array large enough to hold the maximum possible number of keys. Later we 
+	 * can resize the array to use less memory. */
+	*values = malloc(sizeof(void*) * max_children * ORDER);
+	int total_val_count = 0;
+	
+	while(node != NULL) {
+		for(int i = 0; i < node->key_count; i++) {
+			(*values)[total_val_count + i] = node->children[i+1].data;
+		}
+		total_val_count += node->key_count;
+		bptree_addr next_addr = node->children[0].addr;
+		BPTN_CLOSE_NODE(bpt, node);
+		node = BPTN_GET_NODE(bpt, next_addr);
+	}
+
+	*values = realloc(*values, sizeof(void*) * total_val_count);
+	return total_val_count;
+}
+
 bptree_key min(bptree* bpt, bptree_addr naddr) {
 	bptree_addr addr = naddr;
 	while(!BPTN_IS_LEAF(bpt, addr)) {
