@@ -9,6 +9,9 @@
 #define KEYS_OFFSET (LEAF_BOOL_OFFSET + sizeof(BPT_BOOL))
 #define CHILDREN_OFFSET (KEYS_OFFSET + sizeof(bptree_key)*MAX_KEYS)
 
+/* This must be equal to the size of */
+#define CHUNK_SIZE 1
+
 static bptree_addr create_leaf_node(bptree* bpt);
 static bptree_node* fbpt_get_node(bptree* bpt, bptree_addr naddr);
 static KEY_COUNT fbpt_key_count(bptree* bpt, bptree_addr addr);
@@ -21,6 +24,14 @@ static void fbpt_close_node(bptree_node* btn);
 
 bptree* bptree_fbpt_create(FILE* datafile) {
 	bptree* fbpt = malloc(sizeof(bptree));
+	fbpt->tree_head_fpos = ftell(datafile);
+	
+	bptree_addr free_fpos = { .node_fpos = EOF };
+	fwrite(&free_fpos, sizeof(free_fpos), 1, datafile);
+
+	bptree_addr root_address; 
+	root_address.node_fpos = fbpt->tree_head_fpos + 2 * sizeof(bptree_addr);
+	fwrite(&root_address, sizeof(bptree_addr), 1, datafile);
 
 	fbpt->key_compare = bptree_keycmp_int;
 	fbpt->create_node = create_leaf_node;
@@ -39,7 +50,39 @@ bptree* bptree_fbpt_create(FILE* datafile) {
 	return fbpt;
 }
 
+bptree* bptree_fbpt_load(FILE* datafile) {
+	bptree* fbpt = malloc(sizeof(bptree));
+	fbpt->tree_head_fpos = ftell(datafile);
+	
+	fseek(datafile, sizeof(bptree_addr), SEEK_CUR);
+	fread(&fbpt->root, sizeof(bptree_addr), 1, datafile);
+
+	fbpt->key_compare = bptree_keycmp_int;
+	fbpt->create_node = create_leaf_node;
+	fbpt->get_node = fbpt_get_node;
+	fbpt->key_count = fbpt_key_count;
+	fbpt->is_leaf = fbpt_is_leaf;
+	fbpt->get_child_key = fbpt_get_child_key;
+	fbpt->get_child_addr = fbpt_get_child_addr;
+	fbpt->delete_node = fbpt_delete_node;
+	fbpt->write_node = fbpt_write_node;
+	fbpt->close_node = fbpt_close_node;
+	
+	fbpt->fp = datafile;
+
+	return fbpt;
+}
+
+/* We dont actually need to destroy much since all nodes should be freed from
+ * memory automatically. */
+void bptree_fbpt_destroy(bptree* fbpt) {
+	fseek(fbpt->fp, fbpt->tree_head_fpos + sizeof(bptree_addr), SEEK_SET);
+	fwrite(&fbpt->root, sizeof(bptree_addr), 1, fbpt->fp);
+	free(fbpt);
+}
+
 bptree_addr create_leaf_node(bptree* bpt) {
+	/* Maybe a freopen is better here for portability...but probably slower. */
 	fseek(bpt->fp, 0, SEEK_END);
 	bptree_addr addr = { .node_fpos = ftell(bpt->fp) };
 	
@@ -120,4 +163,16 @@ void fbpt_write_node(bptree* bpt, bptree_addr addr, bptree_node* btn) {
 
 void fbpt_close_node(bptree_node* btn) {
 	free(btn);
+}
+
+bptree_addr get_chunk(bptree* bpt) {
+	
+
+	fseek(bpt->fp, 0, SEEK_END);
+	bptree_addr chunk_addr = { .node_fpos = ftell(bpt->fp) };
+
+	char garbage[CHUNK_SIZE];
+	fwrite(garbage, CHUNK_SIZE, 1, bpt->fp);
+
+	return chunk_addr;
 }

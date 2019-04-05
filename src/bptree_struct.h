@@ -29,7 +29,7 @@ typedef struct bptree bptree;
 typedef struct bptree_node bptree_node;
 typedef union bptree_addr { bptree_node* node_p; long node_fpos; } bptree_addr;
 typedef union { void* data; bptree_addr addr; } bptree_child;
-typedef union {int i; char* str;} bptree_key;
+typedef union { int i; char* str; } bptree_key;
 
 struct bptree {
 	int (*key_compare)(bptree_key key1, bptree_key key2);
@@ -57,7 +57,7 @@ struct bptree {
 	bptree_addr root;
 
 	FILE* fp;
-	long offset;
+	long tree_head_fpos;
 };
 
 struct bptree_node {
