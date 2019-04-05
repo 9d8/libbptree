@@ -53,11 +53,11 @@ Here is some sample code that shows the basic functionality of this lib. A more 
 	bptree_membpt_destroy(bpt);
 ```
 produces a bptree that looks like the following:
-'''
+```
 5:- 11:- 30:- 66:- 
     0:hello 2:world 3:misc 
     5:misc 10:misc 
     11:misc 12:misc 22:misc 
     30:misc 45:misc 
     66:misc 80:misc 900:misc
-'''
+```
